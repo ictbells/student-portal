@@ -12,7 +12,19 @@ export type AuthState = {
   unpaid_application_fee?: boolean;
   unpaid_acceptance_fee?: boolean;
   application_id?: number;
+  programme_fee_set?: boolean;
+  programme_fee_total?: number | null;
   university: { name: string; motto: string };
+  current_session?: string | null;
+  current_semester?: string | null;
+  current_term?: {
+    id?: number | null;
+    name?: string | null;
+    session_label?: string | null;
+    registration_status?: string | null;
+    normal_registration_closes_at?: string | null;
+    late_registration_closes_at?: string | null;
+  } | null;
   nin_identity?: {
     nin: string;
     first_name?: string;

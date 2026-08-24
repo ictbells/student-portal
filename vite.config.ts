@@ -1,15 +1,36 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+/** Vite base is `/student/`; without this, refreshing `/student` shows a base-path error. */
+function studentBaseRedirect(): Plugin {
+  return {
+    name: 'student-base-redirect',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url ?? '';
+        const path = raw.split('?')[0];
+        if (path === '/student') {
+          const qs = raw.includes('?') ? raw.slice(raw.indexOf('?')) : '';
+          res.writeHead(301, { Location: `/student/${qs}` });
+          res.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   base: '/student/',
-  plugins: [react(), tailwindcss()],
+  plugins: [studentBaseRedirect(), react(), tailwindcss()],
   server: {
     port: 5174,
     proxy: {
       '/api': 'http://127.0.0.1:8000',
       '/sanctum': 'http://127.0.0.1:8000',
+      '/storage': 'http://127.0.0.1:8000',
     },
   },
 });

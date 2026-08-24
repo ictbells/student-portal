@@ -1,9 +1,10 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api';
+import { PasswordHints, passwordValid } from '../components/passwordHints';
+import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink } from '../layout/AuthLayout';
 import { Alert, Button, Label, PasswordInput, Spinner } from '../components/ui';
-import { PasswordHints, passwordValid } from '../components/passwordHints';
 
 export default function Reset() {
   const [params] = useSearchParams();
@@ -11,20 +12,18 @@ export default function Reset() {
   const token = params.get('token') || '';
   const [password, setPassword] = useState('');
   const [password_confirmation, setConfirm] = useState('');
-  const [msg, setMsg] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
   const ok = useMemo(() => passwordValid(password, email) && password === password_confirmation, [password, password_confirmation, email]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       const { data } = await api.post('/api/reset-password', { email, token, password, password_confirmation });
-      setMsg(data.message || 'Password has been reset. You may sign in.');
+      toast.success(data.message || 'Password has been reset. You may sign in.');
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || 'Could not reset password.');
+      toast.error(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || 'Could not reset password.');
     } finally {
       setLoading(false);
     }
@@ -50,8 +49,6 @@ export default function Reset() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
-        {msg && <Alert tone="success">{msg}</Alert>}
-        {error && <Alert tone="error">{error}</Alert>}
         <div>
           <Label htmlFor="password">New password</Label>
           <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} required />

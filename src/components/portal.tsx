@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { PassportPhoto } from './PassportPhoto';
 
 export function PageHeader({
   title,
@@ -35,28 +36,29 @@ export function StepIndicator({
 }: {
   steps: Step[];
   currentIndex: number;
-  onStepClick: (index: number) => void;
-  isStepLocked: (index: number) => boolean;
-  isStepComplete: (index: number) => boolean;
+  onStepClick?: (index: number) => void;
+  isStepLocked?: (index: number) => boolean;
+  isStepComplete?: (index: number) => boolean;
 }) {
   return (
     <div className="overflow-x-auto pb-1">
       <ol className="flex min-w-max items-center gap-0">
         {steps.map((step, index) => {
-          const locked = isStepLocked(index);
-          const complete = isStepComplete(index);
+          const locked = isStepLocked?.(index) ?? false;
+          const complete = isStepComplete?.(index) ?? index < currentIndex;
           const active = index === currentIndex;
           const last = index === steps.length - 1;
+          const interactive = typeof onStepClick === 'function';
 
           return (
             <li key={step.key} className="flex items-center">
               <button
                 type="button"
-                onClick={() => onStepClick(index)}
-                disabled={locked}
+                onClick={() => onStepClick?.(index)}
+                disabled={locked || !interactive}
                 className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${
-                  locked ? 'cursor-not-allowed opacity-50' : 'hover:bg-white/80'
-                }`}
+                  locked || !interactive ? 'cursor-default' : 'hover:bg-white/80'
+                } ${locked ? 'opacity-50' : ''}`}
               >
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-offset-2 ring-offset-slate-50 transition ${
@@ -95,6 +97,7 @@ export function StepIndicator({
 
 export function IdentityCard({
   photoUrl,
+  applicationId,
   name,
   nin,
   gender,
@@ -102,6 +105,7 @@ export function IdentityCard({
   verified = true,
 }: {
   photoUrl?: string | null;
+  applicationId?: number | null;
   name: string;
   nin?: string;
   gender?: string;
@@ -112,17 +116,17 @@ export function IdentityCard({
     <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 sm:p-5">
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
         <div className="shrink-0 mx-auto sm:mx-0">
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt="Passport photograph"
-              className="h-32 w-28 rounded-xl border-2 border-white shadow-md object-cover bg-slate-100"
-            />
-          ) : (
-            <div className="h-32 w-28 rounded-xl border border-dashed border-slate-300 bg-slate-100 flex items-center justify-center text-xs text-slate-400 text-center px-2">
-              No photo
-            </div>
-          )}
+          <PassportPhoto
+            applicationId={applicationId}
+            src={photoUrl}
+            alt="Passport photograph"
+            className="h-32 w-28 rounded-xl border-2 border-white shadow-md object-cover bg-slate-100"
+            placeholder={(
+              <div className="h-32 w-28 rounded-xl border border-dashed border-slate-300 bg-slate-100 flex items-center justify-center text-xs text-slate-400 text-center px-2">
+                No photo
+              </div>
+            )}
+          />
         </div>
         <div className="flex-1 min-w-0 text-center sm:text-left">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-2">

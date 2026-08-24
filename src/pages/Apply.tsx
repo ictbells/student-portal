@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { IdentityCard, PageHeader } from '../components/portal';
+import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { storageUrl } from '../lib/storage';
 
@@ -40,11 +41,11 @@ export default function Apply() {
   const [jambRegistration, setJambRegistration] = useState('');
   const [openIntakes, setOpenIntakes] = useState<OpenIntake[]>([]);
   const [app, setApp] = useState<any>(null);
-  const [err, setErr] = useState('');
   const [starting, setStarting] = useState(false);
   const [paying, setPaying] = useState(false);
   const nav = useNavigate();
   const { auth, refresh } = useAuth();
+  const toast = useToast();
 
   const loadOpenIntakes = () => {
     api.get('/api/intakes')
@@ -63,6 +64,17 @@ export default function Apply() {
       if (first) setApp(first);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (auth?.is_student) {
+      nav('/', { replace: true });
+      return;
+    }
+    const stage = auth?.lifecycle_stage;
+    if (stage && !['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'].includes(stage)) {
+      nav('/status', { replace: true });
+    }
+  }, [auth?.is_student, auth?.lifecycle_stage, nav]);
 
   useEffect(() => {
     if (!app?.id) return;
@@ -101,10 +113,9 @@ export default function Apply() {
   const start = async () => {
     if (!selectedIntake) return;
     if (requiresJamb && !jambRegistration.trim()) {
-      setErr('JAMB registration number is required for UTME applications.');
+      toast.error('JAMB registration number is required for UTME applications.');
       return;
     }
-    setErr('');
     setStarting(true);
     try {
       const payload: Record<string, unknown> = {
@@ -117,9 +128,10 @@ export default function Apply() {
       const { data } = await api.post('/api/applications', payload);
       setApp(data);
       await refresh();
+      toast.success('Application started');
     } catch (e: any) {
       const errors = e.response?.data?.errors;
-      setErr(errors ? Object.values(errors).flat().join(' ') : e.response?.data?.message || 'Could not start application');
+      toast.error(errors ? Object.values(errors).flat().join(' ') : e.response?.data?.message || 'Could not start application');
       loadOpenIntakes();
     } finally {
       setStarting(false);
@@ -128,11 +140,10 @@ export default function Apply() {
 
   const pay = async () => {
     setPaying(true);
-    setErr('');
     try {
       const invoiceId = app.application_fee_invoice_id || app.application_fee_invoice?.id;
       if (!invoiceId) {
-        setErr('Application fee invoice is missing. Please refresh and try again.');
+        toast.error('Application fee invoice is missing. Please refresh and try again.');
         return;
       }
       const { data } = await api.post('/api/payments/paystack/initialize', {
@@ -144,15 +155,16 @@ export default function Apply() {
         const { data: refreshedApp } = await api.get(`/api/applications/${app.id}`);
         setApp(refreshedApp);
         await refresh();
+        toast.success('Application fee paid');
         return;
       }
       if (data.authorization_url) {
         window.location.href = data.authorization_url;
         return;
       }
-      setErr('Payment could not be started. Please try again or pay at the admissions office.');
+      toast.error('Payment could not be started. Please try again or pay at the admissions office.');
     } catch (e: any) {
-      setErr(e.response?.data?.message || 'Payment could not be started');
+      toast.error(e.response?.data?.message || 'Payment could not be started');
     } finally {
       setPaying(false);
     }
@@ -177,10 +189,9 @@ export default function Apply() {
         description="Choose an open application window, pay the application fee, then complete the form."
       />
 
-      {err && <Alert tone="error">{err}</Alert>}
-
       {auth?.nin_identity && (
         <IdentityCard
+          applicationId={app?.id}
           photoUrl={passportUrl}
           name={identityName(auth.nin_identity)}
           nin={auth.nin_identity.nin}

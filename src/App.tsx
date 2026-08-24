@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
-import Shell from './layout/Shell';
+import { Shell } from './layout/Shell';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Forgot from './pages/Forgot';
@@ -10,7 +10,12 @@ import Apply from './pages/Apply';
 import PaymentCallback from './pages/PaymentCallback';
 import Wizard from './pages/Wizard';
 import Status from './pages/Status';
-import { Profile, WalletPage, Invoices, Documents, Academic } from './pages/Modules';
+import { WalletPage, Invoices, Documents, Academic } from './pages/Modules';
+import Clinic from './pages/Clinic';
+import Hostel from './pages/Hostel';
+import Profile from './pages/Profile';
+import Announcements from './pages/Announcements';
+import Notifications from './pages/Notifications';
 
 function Guard({ children }: { children: React.ReactNode }) {
   const { auth, loading } = useAuth();
@@ -43,8 +48,12 @@ export default function App() {
         <Route path="invoices" element={<Invoices />} />
         <Route path="profile" element={<Profile />} />
         <Route path="wallet" element={<WalletPage />} />
+        <Route path="clinic" element={<Clinic />} />
+        <Route path="hostel" element={<Hostel />} />
         <Route path="academic" element={<Academic />} />
         <Route path="documents" element={<Documents />} />
+        <Route path="announcements" element={<Announcements />} />
+        <Route path="notifications" element={<Notifications />} />
       </Route>
     </Routes>
   );

@@ -2,8 +2,9 @@ import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
+import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink } from '../layout/AuthLayout';
-import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
+import { Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 
 type IdentityPreview = {
   nin: string;
@@ -37,24 +38,24 @@ export default function Signup() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const { setAuth } = useAuth();
+  const toast = useToast();
   const nav = useNavigate();
 
   const verifyNin = async (e: FormEvent) => {
     e.preventDefault();
     if (verifying || nin.length !== 11) return;
-    setError('');
     setVerifying(true);
     try {
       const { data } = await api.post<IdentityPreview>('/api/nin/preview', { nin: nin.trim() });
       setIdentity(data);
       setStep('register');
+      toast.success('NIN verified');
     } catch (err: any) {
       const errors = err.response?.data?.errors;
-      setError(errors ? Object.values(errors).flat().join(' ') : err.response?.data?.message || 'NIN verification failed.');
+      toast.error(errors ? Object.values(errors).flat().join(' ') : err.response?.data?.message || 'NIN verification failed.');
     } finally {
       setVerifying(false);
     }
@@ -62,14 +63,13 @@ export default function Signup() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
     if (!identity) {
-      setError('Verify your NIN before creating an account.');
+      toast.warning('Verify your NIN before creating an account.');
       setStep('nin');
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      toast.error('Passwords do not match.');
       return;
     }
     setLoading(true);
@@ -83,15 +83,12 @@ export default function Signup() {
       });
       if (data.token) sessionStorage.setItem('bells_student_token', data.token);
       setAuth(data);
+      toast.success('Account created');
       nav('/apply');
     } catch (err: any) {
       const msg = err.response?.data?.message;
       const errors = err.response?.data?.errors;
-      if (errors) {
-        setError(Object.values(errors).flat().join(' '));
-      } else {
-        setError(msg || 'Could not create account.');
-      }
+      toast.error(errors ? Object.values(errors).flat().join(' ') : msg || 'Could not create account.');
     } finally {
       setLoading(false);
     }
@@ -111,7 +108,6 @@ export default function Signup() {
     >
       {step === 'nin' ? (
         <form onSubmit={verifyNin} className="space-y-4">
-          {error && <Alert tone="error">{error}</Alert>}
           <div>
             <Label htmlFor="nin">National Identification Number (NIN)</Label>
             <Input
@@ -134,7 +130,6 @@ export default function Signup() {
         </form>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          {error && <Alert tone="error">{error}</Alert>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {IDENTITY_FIELDS.map((field) => (
               <div key={field.key}>
@@ -183,10 +178,7 @@ export default function Signup() {
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               type="button"
-              onClick={() => {
-                setStep('nin');
-                setError('');
-              }}
+              onClick={() => setStep('nin')}
               className="w-full sm:w-auto bg-slate-100 text-slate-800"
             >
               Change NIN

@@ -2,29 +2,30 @@ import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
+import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink } from '../layout/AuthLayout';
-import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
+import { Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 
 export default function Login() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuth();
+  const toast = useToast();
   const nav = useNavigate();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       const { data } = await api.post('/api/login', { login: login.trim(), password, portal: 'student' });
       if (data.token) sessionStorage.setItem('bells_student_token', data.token);
       setAuth(data);
+      toast.success('Signed in');
       if (!data.portal_access && data.unpaid_application_fee) nav('/apply');
       else nav('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.errors?.login?.[0] || 'Unable to sign in');
+      toast.error(err.response?.data?.message || err.response?.data?.errors?.login?.[0] || 'Unable to sign in');
     } finally {
       setLoading(false);
     }
@@ -41,7 +42,6 @@ export default function Login() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
-        {error && <Alert tone="error">{error}</Alert>}
         <div>
           <Label htmlFor="login">Sign-in ID</Label>
           <Input

@@ -1,24 +1,22 @@
 import { FormEvent, useState } from 'react';
 import api from '../api';
+import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink } from '../layout/AuthLayout';
-import { Alert, Button, Input, Label, Spinner } from '../components/ui';
+import { Button, Input, Label, Spinner } from '../components/ui';
 
 export default function Forgot() {
   const [login, setLogin] = useState('');
-  const [done, setDone] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
-    setDone('');
     setLoading(true);
     try {
       const { data } = await api.post('/api/forgot-password', { login: login.trim(), portal: 'student' });
-      setDone(data.message || 'If that account exists, a reset link was sent to the email on your record.');
+      toast.success(data.message || 'If that account exists, a reset link was sent to the email on your record.');
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.errors?.login?.[0] || 'Could not send reset link.');
+      toast.error(err.response?.data?.message || err.response?.data?.errors?.login?.[0] || 'Could not send reset link.');
     } finally {
       setLoading(false);
     }
@@ -35,8 +33,6 @@ export default function Forgot() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
-        {done && <Alert tone="success">{done}</Alert>}
-        {error && <Alert tone="error">{error}</Alert>}
         <div>
           <Label htmlFor="login">Sign-in ID</Label>
           <Input
