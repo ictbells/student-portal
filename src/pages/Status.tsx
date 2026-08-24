@@ -186,6 +186,18 @@ export default function Status() {
             <div className="min-w-0">
               <p className="font-semibold text-slate-900 truncate">{auth.user?.name || 'Applicant'}</p>
               <p className="text-sm text-slate-500 mt-0.5">{studentFacingStatus(stage, auth.is_student)}</p>
+              {app?.eligibility && app?.entry_mode === 'pg' && (
+                <div className={`mt-2 text-sm ${app.eligibility.meets ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {app.eligibility.meets ? 'Meets eligibility' : 'Does not meet eligibility'}
+                  {!app.eligibility.meets && (
+                    <ul className="list-disc pl-4 mt-1">
+                      {(app.eligibility.failed || []).map((item: any) => (
+                        <li key={item.rule}>{item.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </Card>

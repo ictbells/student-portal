@@ -7,7 +7,7 @@ import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { storageUrl } from '../lib/storage';
 
-const JAMB_ENTRY_MODES = ['utme'];
+const JAMB_ENTRY_MODES = ['utme', 'de'];
 
 function biodataPhotoPath(app: any): string | null {
   const payload = app?.steps?.find((s: any) => s.step_key === 'biodata')?.payload;
@@ -113,7 +113,9 @@ export default function Apply() {
   const start = async () => {
     if (!selectedIntake) return;
     if (requiresJamb && !jambRegistration.trim()) {
-      toast.error('JAMB registration number is required for UTME applications.');
+      toast.error(selectedIntake.entry_mode === 'de'
+        ? 'JAMB Direct Entry number is required for Direct Entry applications.'
+        : 'JAMB registration number is required for UTME applications.');
       return;
     }
     setStarting(true);
@@ -250,7 +252,9 @@ export default function Apply() {
               )}
               {requiresJamb && (
                 <div>
-                  <Label htmlFor="jamb">JAMB registration number</Label>
+                  <Label htmlFor="jamb">
+                    {selectedIntake?.entry_mode === 'de' ? 'JAMB Direct Entry number' : 'JAMB registration number'}
+                  </Label>
                   <Input
                     id="jamb"
                     value={jambRegistration}

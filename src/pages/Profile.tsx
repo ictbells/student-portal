@@ -111,12 +111,12 @@ function paymentTone(status: string): 'success' | 'warning' | 'neutral' {
 export default function Profile() {
   const { auth } = useAuth();
   const student = auth?.user?.student;
-  const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [registration, setRegistration] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
 
   useEffect(() => {
     if (!auth?.is_student) return;
-    api.get('/api/academic/my-enrollments').then((r) => setEnrollments(Array.isArray(r.data) ? r.data : [])).catch(() => setEnrollments([]));
+    api.get('/api/academic/my-registration').then((r) => setRegistration(r.data)).catch(() => setRegistration(null));
     api.get('/api/invoices').then((r) => setInvoices(r.data.data || r.data || [])).catch(() => setInvoices([]));
   }, [auth?.is_student]);
 
@@ -148,10 +148,11 @@ export default function Profile() {
   const hasPaidTuition = tuitionInvoices.some((row) => String(row.status || '') === 'paid');
   const tuitionStatus = hasUnpaidTuition || !hasPaidTuition ? 'Pending' : 'Paid';
 
-  const currentEnrollments = currentTermId
-    ? enrollments.filter((row) => row.offering?.academic_term_id === currentTermId)
-    : enrollments;
-  const courseRegistration = currentEnrollments.length ? 'Registered' : 'Pending';
+  const courseRegistration = registration?.roster_status === 'registered'
+    ? 'Registered'
+    : registration?.roster_status === 'in_progress'
+      ? 'In progress'
+      : 'Not started';
 
   const studentStatus = String(student.status || 'active');
   const statusTone = studentStatus === 'active'
@@ -263,6 +264,7 @@ export default function Profile() {
               label="Course registration"
               value={<StatusPill value={courseRegistration} tone={paymentTone(courseRegistration)} />}
             />
+            <Field label="Enrolled units" value={String(registration?.units?.overall ?? 0)} />
           </dl>
         </Section>
       </div>

@@ -16,6 +16,7 @@ import Hostel from './pages/Hostel';
 import Profile from './pages/Profile';
 import Announcements from './pages/Announcements';
 import Notifications from './pages/Notifications';
+import Referee from './pages/Referee';
 
 function Guard({ children }: { children: React.ReactNode }) {
   const { auth, loading } = useAuth();
@@ -38,7 +39,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<Forgot />} />
-      <Route path="/reset-password" element={<Reset />} />
+      <Route path="/referee/:token" element={<Referee />} />
       <Route path="/payments/callback" element={<PaymentCallback />} />
       <Route path="/" element={<Guard><Shell /></Guard>}>
         <Route index element={<Home />} />

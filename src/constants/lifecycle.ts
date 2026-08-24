@@ -28,7 +28,7 @@ export const STUDENT_JOURNEY_STEPS = LIFECYCLE_STEPS.slice(0, 7).map((step, inde
 export function lifecycleIndex(stage?: string, currentStep?: string, isStudent?: boolean): number {
   if (isStudent || stage === 'matriculated') return 15;
   if (stage === 'acceptance_paid') return 14;
-  if (stage === 'awaiting_acceptance_fee' || stage === 'offer_issued') return 12;
+  if (stage === 'awaiting_acceptance_fee' || stage === 'offer_issued' || stage === 'admission') return 12;
   if (stage === 'approved') return 11;
   if (stage === 'recommended') return 10;
   if (stage === 'shortlisting') return 9;
@@ -44,7 +44,10 @@ export function lifecycleIndex(stage?: string, currentStep?: string, isStudent?:
       sponsor: 3,
       application_form: 2,
       academic_qualifications: 4,
+      pg_background: 4,
       programme_selection: 5,
+      pg_research: 5,
+      pg_referees: 5,
       required_documents: 6,
     };
     return map[currentStep || 'biodata'] ?? 2;
