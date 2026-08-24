@@ -1,0 +1,17 @@
+# Local Apache: URL points at this repo folder (e.g. /office/student/).
+# Prefer dist/ so the Vite source index.html is never served.
+#
+# Production: sync/publish dist/ and use public/.htaccess (copied into dist on build).
+DirectoryIndex dist/index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Already under dist — let dist/.htaccess handle SPA
+    RewriteRule ^dist/ - [L]
+
+    # Map every path into dist/ (existing assets serve; missing paths → dist/.htaccess → index.html)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ dist/$1 [L]
+</IfModule>

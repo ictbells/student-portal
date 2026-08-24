@@ -1,0 +1,9 @@
+# SPA fallback when DocumentRoot (or the published folder) is this build output.
+# Copied into dist/ by Vite. Works for /student/ and / (relative index.html).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^index\.html$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . index.html [L]
+</IfModule>
