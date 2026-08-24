@@ -1,0 +1,161 @@
+# Standalone workflow for when this directory is its own git repository.
+# The monorepo runner is /.github/workflows/deploy-student.yml
+#
+# GitHub environments:
+#   development → S3 + CloudFront (AWS)
+#   production  → VPS
+name: Deploy student frontend
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment (development = AWS, production = VPS)
+        required: true
+        type: choice
+        options: [development, production]
+        default: development
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-student-${{ github.event.inputs.environment || vars.DEPLOY_ENVIRONMENT || 'development' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy student
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || vars.DEPLOY_ENVIRONMENT || 'development' }}
+    env:
+      GH_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || vars.DEPLOY_ENVIRONMENT || 'development' }}
+      VITE_API_URL: ${{ vars.VITE_API_URL || secrets.VITE_API_URL }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve deploy target
+        id: resolve
+        env:
+          OVERRIDE: ${{ vars.DEPLOY_TARGET }}
+        run: |
+          if [[ -n "$OVERRIDE" ]]; then
+            TARGET="$OVERRIDE"
+          elif [[ "$GH_ENV" == "development" ]]; then
+            TARGET="aws"
+          elif [[ "$GH_ENV" == "production" ]]; then
+            TARGET="vps"
+          else
+            echo "Unknown environment '$GH_ENV'. Use development (AWS) or production (VPS)." >&2
+            exit 1
+          fi
+          if [[ "$TARGET" != "vps" && "$TARGET" != "aws" ]]; then
+            echo "target must be vps or aws (got: $TARGET)" >&2
+            exit 1
+          fi
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "TARGET=$TARGET" >> "$GITHUB_ENV"
+          echo "Deploy environment=$GH_ENV target=$TARGET"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build
+        env:
+          VITE_BASE: ${{ vars.VITE_BASE }}
+        run: |
+          if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+          if [[ "$TARGET" == "aws" && -z "$VITE_BASE" ]]; then
+            export VITE_BASE=/
+          fi
+          npm run build
+
+      - name: Configure AWS (OIDC)
+        if: ${{ steps.resolve.outputs.target == 'aws' && env.AWS_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Configure AWS (access keys)
+        if: ${{ steps.resolve.outputs.target == 'aws' && env.AWS_ROLE_ARN == '' && env.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Require AWS credentials
+        if: ${{ steps.resolve.outputs.target == 'aws' && env.AWS_ROLE_ARN == '' && env.AWS_ACCESS_KEY_ID == '' }}
+        run: |
+          echo "Set AWS_ROLE_ARN (OIDC) or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY on the development environment." >&2
+          exit 1
+
+      - name: Sync to S3
+        if: ${{ steps.resolve.outputs.target == 'aws' }}
+        env:
+          FROM_STUDENT_VAR: ${{ vars.AWS_S3_STUDENT_BUCKET }}
+          FROM_STUDENT_SECRET: ${{ secrets.AWS_S3_STUDENT_BUCKET }}
+          FROM_SHARED_VAR: ${{ vars.AWS_S3_BUCKET }}
+          FROM_SHARED_SECRET: ${{ secrets.AWS_S3_BUCKET }}
+          PROJECT: ${{ vars.PROJECT_NAME || secrets.PROJECT_NAME || 'bells-sis' }}
+          PREFIX: ${{ vars.AWS_S3_STUDENT_PREFIX || secrets.AWS_S3_STUDENT_PREFIX }}
+        run: |
+          set -euo pipefail
+          BUCKET="${FROM_STUDENT_VAR:-${FROM_STUDENT_SECRET:-${FROM_SHARED_VAR:-${FROM_SHARED_SECRET:-}}}}"
+          if [[ -z "$BUCKET" ]]; then
+            ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+            BUCKET="${PROJECT}-student-${ACCOUNT}"
+          fi
+          echo "Using s3://${BUCKET}/"
+          DEST="s3://$BUCKET"
+          PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
+          [[ -n "$PREFIX" ]] && DEST="$DEST/$PREFIX"
+          aws s3 sync dist "$DEST" --delete --exact-timestamps
+
+      - name: Invalidate CloudFront
+        if: ${{ steps.resolve.outputs.target == 'aws' }}
+        env:
+          DISTRIBUTION: ${{ vars.AWS_CLOUDFRONT_STUDENT_ID || vars.AWS_CLOUDFRONT_DISTRIBUTION_ID || secrets.AWS_CLOUDFRONT_STUDENT_ID || secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+          PREFIX: ${{ vars.AWS_S3_STUDENT_PREFIX || secrets.AWS_S3_STUDENT_PREFIX }}
+        run: |
+          if [[ -z "$DISTRIBUTION" ]]; then
+            echo "No CloudFront id set; skipping invalidation."
+            exit 0
+          fi
+          PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
+          PATHS="/*"
+          [[ -n "$PREFIX" ]] && PATHS="/$PREFIX /${PREFIX}/*"
+          # shellcheck disable=SC2086
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths $PATHS
+
+      - name: Deploy to VPS
+        if: ${{ steps.resolve.outputs.target == 'vps' }}
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY || secrets.VPS_SSH_KEY }}
+          HOST: ${{ vars.VPS_HOST }}
+          USER: ${{ vars.VPS_USER }}
+          PORT: ${{ vars.VPS_PORT || '22' }}
+          REMOTE_PATH: ${{ vars.VPS_STUDENT_PATH || vars.VPS_PATH || secrets.VPS_STUDENT_PATH || secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$HOST" || -z "$USER" || -z "$REMOTE_PATH" ]]; then
+            echo "Set VPS_HOST, VPS_USER, and VPS_STUDENT_PATH." >&2
+            exit 1
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq rsync openssh-client
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=accept-new"
+          ssh -i "$HOME/.ssh/deploy_key" -p "$PORT" -o StrictHostKeyChecking=accept-new \
+            "$USER@$HOST" "mkdir -p '$REMOTE_PATH'"
+          rsync -az --delete -e "$SSH" dist/ "$USER@$HOST:$REMOTE_PATH/"
