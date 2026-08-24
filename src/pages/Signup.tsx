@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
-import AuthLayout, { AuthLink } from '../layout/AuthLayout';
+import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
+import { PasswordHints } from '../components/passwordHints';
 
 type IdentityPreview = {
   nin: string;
@@ -96,18 +97,27 @@ export default function Signup() {
 
   return (
     <AuthLayout
-      title="Initialize account"
+      title={step === 'nin' ? 'Create your account' : 'Complete registration'}
       subtitle={step === 'nin'
-        ? 'Verify your NIN first, then complete your registration details.'
-        : 'Complete your account details to register for admission.'}
+        ? 'We verify your NIN first so your biodata is taken from a trusted source.'
+        : 'Your identity is locked from NIN. Add contact details and a password.'}
+      kicker="New applicant"
       footer={
         <p className="text-slate-500">
           Already have an account? <AuthLink to="/login">Sign in</AuthLink>
         </p>
       }
     >
+      <ol className="mb-6 grid grid-cols-2 gap-2 text-xs">
+        <li className={`rounded-xl border px-3 py-2 ${step === 'nin' ? 'border-crest-gold bg-[#fbf6e8] text-brand' : 'border-[#eee8dc] text-slate-400'}`}>
+          <span className="font-semibold">1</span> Verify NIN
+        </li>
+        <li className={`rounded-xl border px-3 py-2 ${step === 'register' ? 'border-crest-gold bg-[#fbf6e8] text-brand' : 'border-[#eee8dc] text-slate-400'}`}>
+          <span className="font-semibold">2</span> Account details
+        </li>
+      </ol>
       {step === 'nin' ? (
-        <form onSubmit={verifyNin} className="space-y-4">
+        <form onSubmit={verifyNin} className="space-y-5">
           <div>
             <Label htmlFor="nin">National Identification Number (NIN)</Label>
             <Input
@@ -119,38 +129,42 @@ export default function Signup() {
               onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
               required
             />
+            <p className="mt-2 text-xs text-slate-500">{nin.length}/11 digits</p>
           </div>
           <Button
             type="submit"
             disabled={verifying || nin.length !== 11}
-            className="w-full bg-sky-500 hover:bg-sky-600 text-white"
+            className={authPrimaryClass}
           >
-            {verifying ? <Spinner label="Verifying…" /> : 'Verify NIN'}
+            {verifying ? <Spinner label="Verifying…" className="text-white" /> : <span className="text-white">Verify NIN</span>}
           </Button>
         </form>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {IDENTITY_FIELDS.map((field) => (
-              <div key={field.key}>
-                <Label htmlFor={field.key}>{field.label}</Label>
-                <Input
-                  id={field.key}
-                  readOnly
-                  className="bg-slate-100"
-                  value={
-                    field.key === 'date_of_birth'
-                      ? formatDate(identity?.[field.key])
-                      : identity?.[field.key] || ''
-                  }
-                />
-              </div>
-            ))}
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">Verified identity</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {IDENTITY_FIELDS.map((field) => (
+                <div key={field.key}>
+                  <Label htmlFor={field.key}>{field.label}</Label>
+                  <Input
+                    id={field.key}
+                    readOnly
+                    className="bg-white/80"
+                    value={
+                      field.key === 'date_of_birth'
+                        ? formatDate(identity?.[field.key])
+                        : identity?.[field.key] || ''
+                    }
+                  />
+                </div>
+              ))}
+            </div>
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <p className="text-xs text-slate-500 mt-1">Used for notifications and password reset.</p>
+            <p className="mt-1 text-xs text-slate-500">Used for notifications and password reset.</p>
           </div>
           <div>
             <Label htmlFor="phone">Phone</Label>
@@ -164,7 +178,9 @@ export default function Signup() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <p className="text-xs text-slate-500 mt-1">8+ chars, upper, lower, number, symbol</p>
+            <div className="mt-2">
+              <PasswordHints password={password} email={email} />
+            </div>
           </div>
           <div>
             <Label htmlFor="confirm">Confirm password</Label>
@@ -175,16 +191,16 @@ export default function Signup() {
               required
             />
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
               onClick={() => setStep('nin')}
-              className="w-full sm:w-auto bg-slate-100 text-slate-800"
+              className="w-full rounded-xl bg-parchment text-brand sm:w-auto"
             >
               Change NIN
             </Button>
-            <Button type="submit" disabled={loading} className="w-full bg-sky-500 hover:bg-sky-600 text-white">
-              {loading ? <Spinner label="Creating account…" /> : 'Initialize account'}
+            <Button type="submit" disabled={loading} className={authPrimaryClass}>
+              {loading ? <Spinner label="Creating account…" className="text-white" /> : <span className="text-white">Create account</span>}
             </Button>
           </div>
         </form>

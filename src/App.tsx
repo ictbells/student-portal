@@ -39,6 +39,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<Forgot />} />
+      <Route path="/reset-password" element={<Reset />} />
       <Route path="/referee/:token" element={<Referee />} />
       <Route path="/payments/callback" element={<PaymentCallback />} />
       <Route path="/" element={<Guard><Shell /></Guard>}>

@@ -32,7 +32,7 @@ export function Button({ className = '', ...props }: ButtonHTMLAttributes<HTMLBu
 export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 bg-white shadow-sm shadow-slate-100/50 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition ${className}`}
+        className={`w-full border border-[#e4ddd0] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-crest-gold/25 focus:border-crest-gold transition ${className}`}
       {...props}
     />
   );
@@ -46,7 +46,7 @@ export function PasswordInput({ className = '', id, ...props }: Omit<InputHTMLAt
       <input
         id={id}
         type={visible ? 'text' : 'password'}
-        className={`w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-10 text-sm text-slate-900 bg-white shadow-sm shadow-slate-100/50 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition ${className}`}
+        className={`w-full border border-[#e4ddd0] rounded-xl px-3.5 py-2.5 pr-10 text-sm text-slate-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-crest-gold/25 focus:border-crest-gold transition ${className}`}
         {...props}
       />
       <button

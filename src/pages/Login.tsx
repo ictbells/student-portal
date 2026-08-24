@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
-import AuthLayout, { AuthLink } from '../layout/AuthLayout';
+import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 
 export default function Login() {
@@ -33,15 +33,15 @@ export default function Login() {
 
   return (
     <AuthLayout
-      title="Welcome back!"
-      subtitle="Use your application number, JAMB number, or matric number."
+      title="Welcome back"
+      subtitle="Sign in with the identifier issued for your application or enrolment."
       footer={
         <p className="text-slate-500">
           New applicant? <AuthLink to="/signup">Create account</AuthLink>
         </p>
       }
     >
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="space-y-5">
         <div>
           <Label htmlFor="login">Sign-in ID</Label>
           <Input
@@ -52,14 +52,16 @@ export default function Login() {
             placeholder="APP/2026/00001, JAMB, or matric number"
             autoComplete="username"
           />
-          <p className="text-xs text-slate-500 mt-1">
-            UTME applicants use JAMB. Other applicants use their application number. Matriculated students use their matric number.
-          </p>
+          <ul className="mt-3 space-y-1.5 rounded-xl border border-[#eee8dc] bg-parchment/80 px-3.5 py-3 text-xs text-slate-500">
+            <li><span className="font-medium text-brand">UTME</span> — JAMB registration number</li>
+            <li><span className="font-medium text-brand">Other applicants</span> — application number</li>
+            <li><span className="font-medium text-brand">Matriculated</span> — matric number</li>
+          </ul>
         </div>
         <div>
-          <div className="flex items-center justify-between mb-1">
+          <div className="mb-1.5 flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <AuthLink to="/forgot-password" className="text-xs">Forgot password?</AuthLink>
+            <AuthLink to="/forgot-password" className="text-xs font-medium">Forgot password?</AuthLink>
           </div>
           <PasswordInput
             id="password"
@@ -68,7 +70,7 @@ export default function Login() {
             required
           />
         </div>
-        <Button type="submit" disabled={loading} className="w-full bg-sky-500 hover:bg-sky-600 text-white">
+        <Button type="submit" disabled={loading} className={authPrimaryClass}>
           {loading ? <Spinner label="Signing in…" className="text-white" /> : <span className="text-white">Sign in</span>}
         </Button>
       </form>

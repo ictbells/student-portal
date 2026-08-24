@@ -1,14 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #0284c7;
-  --color-brand-dark: #0369a1;
+  --color-brand: #0a2342;
+  --color-brand-dark: #081b33;
   --color-crest-green: #166534;
   --color-crest-gold: #c9a227;
+  --color-parchment: #f4f1ea;
+  --font-sans: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Fraunces", "Times New Roman", serif;
 }
 
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

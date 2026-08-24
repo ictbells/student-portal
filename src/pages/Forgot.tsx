@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import api from '../api';
 import { useToast } from '../components/toast';
-import AuthLayout, { AuthLink } from '../layout/AuthLayout';
+import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Button, Input, Label, Spinner } from '../components/ui';
 
 export default function Forgot() {
@@ -26,6 +26,7 @@ export default function Forgot() {
     <AuthLayout
       title="Forgot password"
       subtitle="Enter your application number, JAMB number, or matric number. We will email a reset link to the address on your record."
+      kicker="Account recovery"
       footer={
         <p className="text-slate-500">
           Remembered it? <AuthLink to="/login">Back to sign in</AuthLink>
@@ -43,8 +44,8 @@ export default function Forgot() {
             placeholder="APP/2026/00001, JAMB, or matric number"
           />
         </div>
-        <Button type="submit" disabled={loading} className="w-full bg-sky-500 hover:bg-sky-600 text-white">
-          {loading ? <Spinner label="Sending…" /> : 'Send reset link'}
+        <Button type="submit" disabled={loading} className={authPrimaryClass}>
+          {loading ? <Spinner label="Sending…" className="text-white" /> : <span className="text-white">Send reset link</span>}
         </Button>
       </form>
     </AuthLayout>

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { PasswordHints, passwordValid } from '../components/passwordHints';
 import { useToast } from '../components/toast';
-import AuthLayout, { AuthLink } from '../layout/AuthLayout';
+import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Alert, Button, Label, PasswordInput, Spinner } from '../components/ui';
 
 export default function Reset() {
@@ -42,6 +42,7 @@ export default function Reset() {
     <AuthLayout
       title="Set a new password"
       subtitle="Choose a strong password for your account."
+      kicker="Account recovery"
       footer={
         <p className="text-slate-500">
           <AuthLink to="/login">Back to sign in</AuthLink>
@@ -58,8 +59,8 @@ export default function Reset() {
           <PasswordInput id="confirm" value={password_confirmation} onChange={(e) => setConfirm(e.target.value)} required />
         </div>
         <PasswordHints password={password} email={email} />
-        <Button type="submit" disabled={!ok || loading} className="w-full bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50">
-          {loading ? <Spinner label="Saving…" /> : 'Reset password'}
+        <Button type="submit" disabled={!ok || loading} className={`${authPrimaryClass} disabled:opacity-50`}>
+          {loading ? <Spinner label="Saving…" className="text-white" /> : <span className="text-white">Reset password</span>}
         </Button>
       </form>
     </AuthLayout>
