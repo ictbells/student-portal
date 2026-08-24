@@ -156,7 +156,9 @@ export default function Profile() {
   const studentStatus = String(student.status || 'active');
   const statusTone = studentStatus === 'active'
     ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
-    : 'bg-slate-100 text-slate-700 ring-slate-200';
+    : studentStatus === 'graduated'
+      ? 'bg-amber-50 text-amber-800 ring-amber-200'
+      : 'bg-slate-100 text-slate-700 ring-slate-200';
 
   const snapshot = [
     { label: 'Level', value: display(student.current_level) },
@@ -223,6 +225,13 @@ export default function Profile() {
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Matriculation number" value={display(student.matric_number)} mono />
             <Field label="Current level" value={display(student.current_level)} />
+            <Field label="Studentship" value={display(student.status)} />
+            {student.graduated_at && (
+              <Field label="Graduated" value={display(student.graduated_at)} />
+            )}
+            {student.studentship_expires_at && (
+              <Field label="Studentship ends" value={display(student.studentship_expires_at)} />
+            )}
             <Field label="Department" value={display(department?.name)} />
             <Field label="Program" value={display(program?.name)} />
             <Field label="Fullname" value={display(fullName)} />

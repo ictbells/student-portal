@@ -1462,9 +1462,20 @@ export function Academic() {
       </Card>
       <Card>
         {tr && (
-          <div className="mb-4 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">GPA</p>
-            <p className="text-2xl font-semibold text-sky-700 mt-1">{tr.gpa}</p>
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">CGPA</p>
+              <p className="text-2xl font-semibold text-sky-700 mt-1">{tr.cgpa ?? tr.gpa ?? '—'}</p>
+            </div>
+            {Array.isArray(tr.terms) && tr.terms.length > 0 && (
+              <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Latest term GPA</p>
+                <p className="text-2xl font-semibold text-slate-800 mt-1">{tr.terms[tr.terms.length - 1]?.gpa ?? '—'}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {tr.terms[tr.terms.length - 1]?.session_label} {tr.terms[tr.terms.length - 1]?.name}
+                </p>
+              </div>
+            )}
           </div>
         )}
         <h2 className="font-semibold text-slate-900 mb-2">Transcript</h2>
@@ -1473,10 +1484,33 @@ export function Academic() {
           {rows.map((e) => (
             <li key={e.id} className="py-2.5 flex justify-between gap-3">
               <span>{e.offering?.course?.code} {e.offering?.course?.title}</span>
-              <span className="font-medium text-slate-700">{e.grade?.letter || '—'}</span>
+              <span className="font-medium text-slate-700">
+                {e.grade?.letter || (e.pending_grade ? 'Pending' : '—')}
+              </span>
             </li>
           ))}
         </ul>
+        {Array.isArray(tr?.terms) && tr.terms.length > 0 && (
+          <div className="mt-6 space-y-4">
+            <h3 className="font-semibold text-slate-900">By semester</h3>
+            {tr.terms.map((term: any) => (
+              <div key={term.academic_term_id} className="rounded-lg border border-slate-100 p-3">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="font-medium">{term.session_label} · {term.name}</span>
+                  <span>GPA {term.gpa}</span>
+                </div>
+                <ul className="text-sm divide-y divide-slate-50">
+                  {(term.rows || []).map((row: any) => (
+                    <li key={row.id} className="py-1.5 flex justify-between">
+                      <span>{row.course?.code} {row.course?.title}</span>
+                      <span>{row.letter || '—'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -187,13 +187,13 @@ export default function Home() {
         tone: enrollments.length ? 'success' : 'default',
       },
       {
-        label: 'GPA',
-        value: transcript?.gpa != null ? String(transcript.gpa) : '—',
-        hint: 'Cumulative academic standing',
-        tone: transcript?.gpa != null ? 'info' : 'default',
+        label: 'CGPA',
+        value: transcript?.cgpa != null ? String(transcript.cgpa) : (transcript?.gpa != null ? String(transcript.gpa) : '—'),
+        hint: 'Cumulative academic standing (released results)',
+        tone: (transcript?.cgpa ?? transcript?.gpa) != null ? 'info' : 'default',
       },
     ];
-  }, [auth?.user?.student, app?.program?.name, wallet, unpaidInvoices.length, paidInvoices.length, enrollments.length, transcript?.gpa]);
+  }, [auth?.user?.student, app?.program?.name, wallet, unpaidInvoices.length, paidInvoices.length, enrollments.length, transcript?.cgpa, transcript?.gpa]);
 
   const stats = isStudent ? studentStats : applicationStats;
 
