@@ -104,7 +104,7 @@ function Section({
 function paymentTone(status: string): 'success' | 'warning' | 'neutral' {
   const value = status.toLowerCase();
   if (value === 'paid' || value === 'registered' || value === 'open') return 'success';
-  if (value === 'pending' || value === 'partial' || value === 'late' || value === 'closed') return 'warning';
+  if (value === 'pending' || value === 'partial' || value === 'late' || value === 'closed' || value === 'in progress') return 'warning';
   return 'neutral';
 }
 
@@ -141,7 +141,6 @@ export default function Profile() {
   const sessionLabel = term?.session_label || auth.current_session || '—';
   const semesterLabel = formatSemester(term?.name || auth.current_semester);
   const registrationStatus = term?.registration_status || 'Closed';
-  const currentTermId = term?.id ?? null;
 
   const tuitionInvoices = invoices.filter((row) => String(row.category || '') === 'tuition');
   const hasUnpaidTuition = tuitionInvoices.some((row) => ['unpaid', 'partial'].includes(String(row.status || '')));
