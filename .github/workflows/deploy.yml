@@ -73,8 +73,9 @@ jobs:
           VITE_BASE: ${{ vars.VITE_BASE }}
         run: |
           if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
-          if [[ "$TARGET" == "aws" && -z "$VITE_BASE" ]]; then
+          if [[ "$TARGET" == "aws" ]]; then
             export VITE_BASE=/
+            echo "AWS CloudFront student host requires VITE_BASE=/"
           fi
           npm run build
 
@@ -119,6 +120,17 @@ jobs:
           DEST="s3://$BUCKET"
           PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
           [[ -n "$PREFIX" ]] && DEST="$DEST/$PREFIX"
+          if [[ -d dist/assets ]]; then
+            aws s3 sync dist/assets "$DEST/assets" \
+              --cache-control "public,max-age=31536000,immutable"
+          fi
+          aws s3 sync dist "$DEST" \
+            --exclude "assets/*" \
+            --cache-control "no-cache, must-revalidate"
+          aws s3 cp dist/index.html "$DEST/index.html" \
+            --cache-control "no-cache, must-revalidate" \
+            --content-type "text/html; charset=utf-8" \
+            --metadata-directive REPLACE
           aws s3 sync dist "$DEST" --delete --exact-timestamps
 
       - name: Invalidate CloudFront
@@ -128,12 +140,12 @@ jobs:
           PREFIX: ${{ vars.AWS_S3_STUDENT_PREFIX || secrets.AWS_S3_STUDENT_PREFIX }}
         run: |
           if [[ -z "$DISTRIBUTION" ]]; then
-            echo "No CloudFront id set; skipping invalidation."
-            exit 0
+            echo "Set AWS_CLOUDFRONT_STUDENT_ID (or AWS_CLOUDFRONT_DISTRIBUTION_ID). Skipping invalidation leaves stale index.html and MIME errors." >&2
+            exit 1
           fi
           PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
-          PATHS="/*"
-          [[ -n "$PREFIX" ]] && PATHS="/$PREFIX /${PREFIX}/*"
+          PATHS="/index.html /*"
+          [[ -n "$PREFIX" ]] && PATHS="/$PREFIX /${PREFIX}/* /${PREFIX}/index.html"
           # shellcheck disable=SC2086
           aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths $PATHS
 

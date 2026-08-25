@@ -1,8 +1,14 @@
 # SPA fallback when DocumentRoot (or the published folder) is this build output.
 # Copied into dist/ by Vite. Works for /student/ and / (relative index.html).
+<IfModule mod_mime.c>
+    AddType application/javascript .js .mjs
+    AddType text/css .css
+</IfModule>
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule ^index\.html$ - [L]
+    # Missing JS/CSS/images must 404 — not index.html (module MIME errors).
+    RewriteRule \.(?:js|mjs|cjs|css|map|json|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|wasm)$ - [L]
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule . index.html [L]

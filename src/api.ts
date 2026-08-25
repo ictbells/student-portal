@@ -1,11 +1,35 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.VITE_API_URL || '';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL,
   withCredentials: true,
+  withXSRFToken: true,
+  xsrfCookieName: 'Bells-XSRF-TOKEN',
+  xsrfHeaderName: 'X-XSRF-TOKEN',
 });
 
-api.interceptors.request.use((config) => {
+let csrfPromise: Promise<void> | null = null;
+
+function ensureCsrfCookie() {
+  if (!csrfPromise) {
+    csrfPromise = api
+      .get('/api/sanctum/csrf-cookie')
+      .then(() => undefined)
+      .catch((err) => {
+        csrfPromise = null;
+        throw err;
+      });
+  }
+  return csrfPromise;
+}
+
+api.interceptors.request.use(async (config) => {
+  const method = (config.method ?? 'get').toLowerCase();
+  if (!['get', 'head', 'options'].includes(method)) {
+    await ensureCsrfCookie();
+  }
   const token = sessionStorage.getItem('bells_student_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
