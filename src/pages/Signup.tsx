@@ -1,10 +1,10 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
-import { Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
+import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 import { PasswordHints } from '../components/passwordHints';
 
 type IdentityPreview = {
@@ -32,6 +32,9 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
+export const APPLICATIONS_CLOSED_MESSAGE =
+  'Applications are not open. There is no active application session, so you cannot create an account.';
+
 export default function Signup() {
   const [step, setStep] = useState<'nin' | 'register'>('nin');
   const [nin, setNin] = useState('');
@@ -42,12 +45,21 @@ export default function Signup() {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [applicationsOpen, setApplicationsOpen] = useState<boolean | null>(null);
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
 
+  useEffect(() => {
+    api
+      .get<{ applications_open?: boolean }>('/api/portal-info')
+      .then(({ data }) => setApplicationsOpen(data.applications_open === true))
+      .catch(() => setApplicationsOpen(true));
+  }, []);
+
   const verifyNin = async (e: FormEvent) => {
     e.preventDefault();
+    if (applicationsOpen === false) return;
     if (verifying || nin.length !== 11) return;
     setVerifying(true);
     try {
@@ -67,6 +79,7 @@ export default function Signup() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (applicationsOpen === false) return;
     if (!identity) {
       toast.warning('Verify your NIN before creating an account.');
       setStep('nin');
@@ -100,10 +113,14 @@ export default function Signup() {
 
   return (
     <AuthLayout
-      title={step === 'nin' ? 'Create your account' : 'Complete registration'}
-      subtitle={step === 'nin'
-        ? 'We verify your NIN first so your biodata is taken from a trusted source.'
-        : 'Your identity is locked from NIN. Add contact details and a password.'}
+      title={applicationsOpen === false ? 'Applications are closed' : step === 'nin' ? 'Create your account' : 'Complete registration'}
+      subtitle={
+        applicationsOpen === false
+          ? APPLICATIONS_CLOSED_MESSAGE
+          : step === 'nin'
+            ? 'We verify your NIN first so your biodata is taken from a trusted source.'
+            : 'Your identity is locked from NIN. Add contact details and a password.'
+      }
       kicker="New applicant"
       footer={
         <p className="text-slate-500">
@@ -111,6 +128,14 @@ export default function Signup() {
         </p>
       }
     >
+      {applicationsOpen === null ? (
+        <div className="flex justify-center py-8">
+          <Spinner label="Checking application session…" className="text-brand" />
+        </div>
+      ) : applicationsOpen === false ? (
+        <Alert tone="warning">{APPLICATIONS_CLOSED_MESSAGE}</Alert>
+      ) : (
+        <>
       <ol className="mb-6 grid grid-cols-2 gap-2 text-xs">
         <li className={`rounded-xl border px-3 py-2 ${step === 'nin' ? 'border-crest-gold bg-[#fbf6e8] text-brand' : 'border-[#eee8dc] text-slate-400'}`}>
           <span className="font-semibold">1</span> Verify NIN
@@ -207,6 +232,8 @@ export default function Signup() {
             </Button>
           </div>
         </form>
+      )}
+        </>
       )}
     </AuthLayout>
   );

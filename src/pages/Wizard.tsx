@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { DocumentPreviewThumb } from '../components/DocumentPreviewThumb';
-import { Breadcrumb, FormSection, IdentityCard, PageHeader, StepIndicator } from '../components/portal';
+import { Breadcrumb, FormSection, PageHeader, StepIndicator } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { storageUrl } from '../lib/storage';
@@ -255,15 +255,6 @@ function formatDate(value?: string) {
 
 function biodataPayload(app: any) {
   return app?.steps?.find((s: any) => s.step_key === 'biodata')?.payload || {};
-}
-
-function identityName(payload: any, auth: ReturnType<typeof useAuth>['auth']) {
-  const fromPayload = [payload.first_name, payload.middle_name, payload.last_name].filter(Boolean).join(' ');
-  if (fromPayload) return fromPayload;
-  const fromAuth = [auth?.nin_identity?.first_name, auth?.nin_identity?.middle_name, auth?.nin_identity?.last_name]
-    .filter(Boolean)
-    .join(' ');
-  return fromAuth || auth?.user?.name || '';
 }
 
 const selectClass = 'w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 transition';
@@ -617,7 +608,6 @@ export default function Wizard() {
   const secondSitting: OlevelSitting = payload.second_sitting || { ...emptySitting(), results: [] };
   const bio = biodataPayload(app);
   const passportUrl = storageUrl(bio.photo_path || payload.photo_path) || auth?.nin_identity?.photo_url || null;
-  const displayName = identityName(step.key === 'biodata' ? payload : bio, auth);
   const nyscStatus = app?.steps?.find((s: any) => s.step_key === 'pg_background')?.payload?.nysc_status;
   const requiredDocs = requiredDocumentsFor(app?.entry_mode, nyscStatus);
   const eligibility = app?.eligibility;
@@ -933,15 +923,6 @@ export default function Wizard() {
               </FormSection>
             ) : (
               <>
-                <IdentityCard
-                  applicationId={app.id}
-                  photoUrl={passportUrl}
-                  name={displayName}
-                  nin={payload.nin || bio.nin}
-                  gender={payload.gender || bio.gender}
-                  dateOfBirth={formatDate(payload.date_of_birth || bio.date_of_birth)}
-                  verified
-                />
                 <FormSection title="Identity details" description="Retrieved from NIMC and cannot be edited. Continue to personal details next.">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {IDENTITY_FIELDS.map((field) => (

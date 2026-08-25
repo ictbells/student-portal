@@ -1,18 +1,26 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
-import { Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
+import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 
 export default function Login() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [applicationsOpen, setApplicationsOpen] = useState<boolean | null>(null);
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
+
+  useEffect(() => {
+    api
+      .get<{ applications_open?: boolean }>('/api/portal-info')
+      .then(({ data }) => setApplicationsOpen(data.applications_open === true))
+      .catch(() => setApplicationsOpen(true));
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -41,7 +49,12 @@ export default function Login() {
         </p>
       }
     >
-      <form onSubmit={submit} className="space-y-5">
+      {applicationsOpen === false && (
+        <Alert tone="warning">
+          New applicant accounts are paused until an application session is open.
+        </Alert>
+      )}
+      <form onSubmit={submit} className={`space-y-5${applicationsOpen === false ? ' mt-5' : ''}`}>
         <div>
           <Label htmlFor="login">Sign-in ID</Label>
           <Input
