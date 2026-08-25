@@ -17,12 +17,14 @@ type GeoState = { state_id: number; state_title: string };
 type GeoLga = { lga_id: number; lga_title: string; state_id: number };
 
 function apiErrorMessage(e: any, fallback: string) {
-  const errors = e?.response?.data?.errors;
+  const data = e?.response?.data;
+  const errors = data?.errors;
   if (errors && typeof errors === 'object') {
     const first = Object.values(errors).flat().find((v) => typeof v === 'string');
     if (typeof first === 'string') return first;
   }
-  return e?.response?.data?.message || fallback;
+  if (typeof data?.message === 'string' && data.message.trim()) return data.message;
+  return fallback;
 }
 
 function wizardSteps(entryMode?: string) {
@@ -552,12 +554,16 @@ export default function Wizard() {
         };
       }
       if (steps[idx].key === 'programme_selection') {
-        const second = Number(payload.second_choice_program_id);
+        const firstId = Number(payload.first_choice_program_id);
+        const secondId = Number(payload.second_choice_program_id);
         body = {
-          ...payload,
-          first_choice_program_id: Number(payload.first_choice_program_id),
-          second_choice_program_id: second || null,
-          program_id: Number(payload.first_choice_program_id),
+          first_choice_college_id: Number(payload.first_choice_college_id) || null,
+          first_choice_department_id: Number(payload.first_choice_department_id) || null,
+          first_choice_program_id: firstId,
+          second_choice_college_id: Number(payload.second_choice_college_id) || null,
+          second_choice_department_id: Number(payload.second_choice_department_id) || null,
+          second_choice_program_id: Number.isFinite(secondId) && secondId > 0 ? secondId : null,
+          program_id: firstId,
         };
       }
       if (steps[idx].key === 'transfer_background') {
