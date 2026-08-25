@@ -33,8 +33,11 @@ function wizardSteps(entryMode?: string) {
     { key: 'next_of_kin', title: 'Next of kin' },
     { key: 'sponsor', title: 'Sponsor' },
     { key: 'application_form', title: 'Contact & declaration' },
-    { key: 'academic_qualifications', title: "O'Level" },
   ];
+  if (entryMode === 'utme') {
+    list.push({ key: 'utme', title: 'JAMB / UTME' });
+  }
+  list.push({ key: 'academic_qualifications', title: "O'Level" });
   if (entryMode === 'de') {
     list.push({ key: 'direct_entry', title: 'Direct Entry' });
   }
@@ -305,6 +308,7 @@ export default function Wizard() {
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [programs, setPrograms] = useState<any[]>([]);
+  const [colleges, setColleges] = useState<any[]>([]);
   const [olevelSubjects, setOlevelSubjects] = useState<OlevelSubject[]>([]);
   const [candidateUtme, setCandidateUtme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -334,6 +338,9 @@ export default function Wizard() {
     let stepPayload = step?.payload || {};
     if (activeKey === 'academic_qualifications') {
       stepPayload = normalizeAcademicPayload(stepPayload);
+    }
+    if (activeKey === 'utme') {
+      stepPayload = { utme: asUtme(stepPayload.utme, candidateUtme) };
     }
     if (activeKey === 'application_form' && !stepPayload.phone && auth?.user?.phone) {
       stepPayload = { ...stepPayload, phone: auth.user.phone };
@@ -379,7 +386,7 @@ export default function Wizard() {
   }, [app?.jamb_registration, auth?.user?.jamb_registration, app?.intake?.term?.session_label]);
 
   useEffect(() => {
-    if (steps[idx]?.key !== 'academic_qualifications' || !candidateUtme) return;
+    if (steps[idx]?.key !== 'utme' || !candidateUtme) return;
     setPayload((prev: any) => {
       const current = prev.utme;
       const filled = current?.aggregate || current?.course_choice || current?.exam_year
@@ -391,8 +398,16 @@ export default function Wizard() {
   }, [candidateUtme, idx]);
 
   useEffect(() => {
+    api.get('/api/colleges')
+      .then((r) => setColleges(Array.isArray(r.data) ? r.data : r.data?.data ?? []))
+      .catch(() => setColleges([]));
+  }, []);
+
+  useEffect(() => {
     if (!app?.entry_mode) return;
-    api.get('/api/programs', { params: { entry_mode: app.entry_mode } }).then((r) => setPrograms(r.data));
+    api.get('/api/programs', { params: { entry_mode: app.entry_mode } })
+      .then((r) => setPrograms(Array.isArray(r.data) ? r.data : r.data?.data ?? []))
+      .catch(() => setPrograms([]));
   }, [app?.entry_mode, app?.id, app?.steps]);
 
   useEffect(() => {
@@ -433,17 +448,27 @@ export default function Wizard() {
   }, [printHtml]);
 
   const collegeOptions = useMemo(
-    () => uniqueNamedOptions(programs.map((p) => ({
-      value: Number(facultyIdOf(p) || 0),
-      label: p.department?.faculty?.name || '',
-    }))),
-    [programs],
+    () => uniqueNamedOptions([
+      ...colleges.map((c) => ({
+        value: Number(c.id || 0),
+        label: c.name || '',
+      })),
+      ...programs.map((p) => ({
+        value: Number(facultyIdOf(p) || 0),
+        label: p.department?.faculty?.name || '',
+      })),
+    ]),
+    [colleges, programs],
   );
 
   const applyStepPayload = (appData: any, stepIndex: number) => {
     let nextPayload = appData.steps?.find((x: any) => x.step_key === steps[stepIndex].key)?.payload || {};
     if (steps[stepIndex].key === 'academic_qualifications') {
       nextPayload = normalizeAcademicPayload(nextPayload, candidateUtme);
+    }
+    if (steps[stepIndex].key === 'utme') {
+      const academicUtme = appData.steps?.find((x: any) => x.step_key === 'academic_qualifications')?.payload?.utme;
+      nextPayload = { utme: asUtme(nextPayload.utme, academicUtme || candidateUtme) };
     }
     if (steps[stepIndex].key === 'application_form' && !nextPayload.phone && auth?.user?.phone) {
       nextPayload = { ...nextPayload, phone: auth.user.phone };
@@ -466,7 +491,6 @@ export default function Wizard() {
     }
     if (steps[stepIndex].key === 'pg_background') {
       nextPayload = {
-        prior_degrees: [{ degree_title: '', institution: '', field_of_study: '', class: 'second_lower', award_level: 'bachelor', year_awarded: '', country: 'Nigeria' }],
         nysc_status: 'completed',
         professional_qualifications: [],
         ...nextPayload,
@@ -508,6 +532,9 @@ export default function Wizard() {
     setSaving(true);
     try {
       let body = payload;
+      if (steps[idx].key === 'utme') {
+        body = { utme: utmeForSave(payload.utme) };
+      }
       if (steps[idx].key === 'academic_qualifications') {
         const cleanSitting = (sitting: any) => {
           if (!sitting) return null;
@@ -515,10 +542,9 @@ export default function Wizard() {
           return { ...sitting, results };
         };
         body = {
-          ...payload,
           first_sitting: cleanSitting(payload.first_sitting),
           second_sitting: cleanSitting(payload.second_sitting),
-          utme: utmeForSave(payload.utme),
+          other_qualifications: payload.other_qualifications || '',
         };
       }
       if (steps[idx].key === 'programme_selection') {
@@ -628,6 +654,14 @@ export default function Wizard() {
   const departmentsFor = (collegeId: number | string) => {
     const id = Number(collegeId);
     if (!id) return [];
+    const college = colleges.find((c) => Number(c.id) === id);
+    const fromCollege = uniqueNamedOptions(
+      (college?.departments || []).map((d: any) => ({
+        value: Number(d.id || 0),
+        label: d.name || '',
+      })),
+    );
+    if (fromCollege.length) return fromCollege;
     return uniqueNamedOptions(
       programs
         .filter((p) => facultyIdOf(p) === id)
@@ -1658,7 +1692,11 @@ export default function Wizard() {
                     }}
                   >
                     <option value="">
-                      {!payload.first_choice_college_id ? 'Select a college first' : 'Select department'}
+                      {!payload.first_choice_college_id
+                        ? 'Select a college first'
+                        : departmentsFor(payload.first_choice_college_id).length
+                          ? 'Select department'
+                          : 'No departments in this college yet'}
                     </option>
                     {departmentsFor(payload.first_choice_college_id).map((d) => (
                       <option key={d.value} value={d.value}>{d.label}</option>
@@ -1684,7 +1722,11 @@ export default function Wizard() {
                     }}
                   >
                     <option value="">
-                      {!payload.first_choice_department_id ? 'Select a department first' : 'Select programme'}
+                      {!payload.first_choice_department_id
+                        ? 'Select a department first'
+                        : programsFor(payload.first_choice_department_id).length
+                          ? 'Select programme'
+                          : 'No programmes for this admission category yet'}
                     </option>
                     {programsFor(payload.first_choice_department_id).map((p) => (
                       <option key={p.id} value={p.id}>{programOptionLabel(p)}</option>
@@ -1735,7 +1777,11 @@ export default function Wizard() {
                     }}
                   >
                     <option value="">
-                      {!payload.second_choice_college_id ? 'Select a college first' : 'Select department'}
+                      {!payload.second_choice_college_id
+                        ? 'Select a college first'
+                        : departmentsFor(payload.second_choice_college_id).length
+                          ? 'Select department'
+                          : 'No departments in this college yet'}
                     </option>
                     {departmentsFor(payload.second_choice_college_id).map((d) => (
                       <option key={d.value} value={d.value}>{d.label}</option>
@@ -1755,7 +1801,11 @@ export default function Wizard() {
                     }))}
                   >
                     <option value="">
-                      {!payload.second_choice_department_id ? 'Select a department first' : 'None'}
+                      {!payload.second_choice_department_id
+                        ? 'Select a department first'
+                        : programsFor(payload.second_choice_department_id, Number(payload.first_choice_program_id) || undefined).length
+                          ? 'None'
+                          : 'No programmes for this admission category yet'}
                     </option>
                     {programsFor(payload.second_choice_department_id, Number(payload.first_choice_program_id) || undefined).map((p) => (
                       <option key={p.id} value={p.id}>{programOptionLabel(p)}</option>

@@ -46,6 +46,7 @@ function formProgress(app: any): { done: number; total: number } {
     'next_of_kin',
     'sponsor',
     'application_form',
+    ...(app?.entry_mode === 'utme' ? ['utme'] : []),
     'academic_qualifications',
     'programme_selection',
     'required_documents',

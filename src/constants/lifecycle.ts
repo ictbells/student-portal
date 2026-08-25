@@ -43,6 +43,7 @@ export function lifecycleIndex(stage?: string, currentStep?: string, isStudent?:
       next_of_kin: 3,
       sponsor: 3,
       application_form: 2,
+      utme: 4,
       academic_qualifications: 4,
       pg_background: 4,
       programme_selection: 5,
