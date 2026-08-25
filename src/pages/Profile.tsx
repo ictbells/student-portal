@@ -18,7 +18,7 @@ function formatCloseDateTime(value?: string | null) {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const meridiem = hours >= 12 ? 'PM' : 'AM';
   const hour12 = hours % 12 || 12;
-  return `Date: ${day}-${month}-${year}, Time: ${String(hour12).padStart(2, '0')}:${minutes} ${meridiem}`;
+  return `${day}-${month}-${year}, Time: ${String(hour12).padStart(2, '0')}:${minutes} ${meridiem}`;
 }
 
 function formatSemester(name?: string | null) {
@@ -143,9 +143,32 @@ export default function Profile() {
   const registrationStatus = term?.registration_status || 'Closed';
 
   const tuitionInvoices = invoices.filter((row) => String(row.category || '') === 'tuition');
-  const hasUnpaidTuition = tuitionInvoices.some((row) => ['unpaid', 'partial'].includes(String(row.status || '')));
-  const hasPaidTuition = tuitionInvoices.some((row) => String(row.status || '') === 'paid');
-  const tuitionStatus = hasUnpaidTuition || !hasPaidTuition ? 'Pending' : 'Paid';
+  const tuitionPercent = Number(registration?.tuition_percent);
+  const tuitionStatus = (() => {
+    if (Number.isFinite(tuitionPercent)) {
+      if (tuitionPercent >= 100) return 'Paid';
+      if (tuitionPercent > 0) return 'Partial';
+      return 'Pending';
+    }
+    // Fallback when registration payload is unavailable: compare receipts to full fee.
+    if (!tuitionInvoices.length) return 'Pending';
+    let billed = 0;
+    let paid = 0;
+    for (const row of tuitionInvoices) {
+      const full = Number(row.full_amount ?? row.amount ?? 0);
+      billed = Math.max(billed, full);
+      const receipts = Array.isArray(row.payments) ? row.payments : [];
+      paid += receipts
+        .filter((payment: any) => ['successful', 'paid'].includes(String(payment.status || '')))
+        .reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
+      if (!receipts.length && ['paid', 'partial'].includes(String(row.status || ''))) {
+        paid += Math.max(0, full - Number(row.balance ?? 0));
+      }
+    }
+    if (billed > 0 && paid >= billed - 0.009) return 'Paid';
+    if (paid > 0.009) return 'Partial';
+    return 'Pending';
+  })();
 
   const courseRegistration = registration?.roster_status === 'registered'
     ? 'Registered'

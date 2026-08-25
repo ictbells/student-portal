@@ -7,12 +7,9 @@ import {
   hasPendingAdmissionOffer,
   isOfferPromptDismissed,
 } from '../lib/offer';
+import { formatNaira } from '../lib/money';
 import { useToast } from './toast';
 import { Button, Spinner } from './ui';
-
-function naira(value?: number | string | null) {
-  return `₦${Number(value || 0).toLocaleString()}`;
-}
 
 export default function OfferAcceptanceModal() {
   const { auth, refresh } = useAuth();
@@ -153,7 +150,7 @@ export default function OfferAcceptanceModal() {
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Acceptance fee</dt>
                     <dd className="mt-0.5 font-semibold text-slate-900">
-                      {naira(invoice.amount)}
+                      {formatNaira(invoice.amount)}
                       <span className="ml-1.5 font-normal capitalize text-slate-500">{invoice.status}</span>
                     </dd>
                   </div>

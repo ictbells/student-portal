@@ -4,12 +4,9 @@ import api from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import { Button, Spinner } from '../components/ui';
+import { formatNaira } from '../lib/money';
 
 type PaymentKind = 'wallet' | 'application_fee' | 'acceptance_fee' | 'invoice';
-
-function naira(value?: number | string | null) {
-  return `₦${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 function kindFromReference(reference: string | null): PaymentKind {
   if (reference?.startsWith('PSK-W-')) return 'wallet';
@@ -196,7 +193,7 @@ export default function PaymentCallback() {
               {amount != null && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <dt className="text-slate-500">Amount</dt>
-                  <dd className="font-semibold tabular-nums text-slate-900">{naira(amount)}</dd>
+                  <dd className="font-semibold tabular-nums text-slate-900">{formatNaira(amount)}</dd>
                 </div>
               )}
               {reference && (

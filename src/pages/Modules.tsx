@@ -827,13 +827,13 @@ export function Invoices() {
           aria-label={receiptTitle}
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
+            <div className="flex items-center justify-between gap-3 border-b border-sky-900/20 px-4 py-3 bg-[#0c4a6e] text-white">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Payment receipt</p>
-                <h3 className="font-semibold text-slate-900 truncate">{receiptTitle}</h3>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-200">Official bursary receipt</p>
+                <h3 className="font-semibold truncate">{receiptTitle}</h3>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {receiptHtml && (
@@ -841,14 +841,14 @@ export function Invoices() {
                     <button
                       type="button"
                       onClick={printReceipt}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
                     >
                       Print
                     </button>
                     <button
                       type="button"
                       onClick={() => downloadReceipt({ html: receiptHtml })}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
                     >
                       Download
                     </button>
@@ -857,13 +857,13 @@ export function Invoices() {
                 <button
                   type="button"
                   onClick={() => setReceiptHtml(null)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
                 >
                   Close
                 </button>
               </div>
             </div>
-            <div className="flex-1 min-h-0 bg-slate-100">
+            <div className="flex-1 min-h-0 bg-[#e8eef3]">
               {receiptLoading || !receiptHtml ? (
                 <div className="flex items-center justify-center py-24 text-slate-500">
                   <Spinner label="Loading receipt…" />
@@ -873,7 +873,7 @@ export function Invoices() {
                   id="receipt-frame"
                   title={receiptTitle}
                   srcDoc={receiptHtml}
-                  className="w-full h-[min(70vh,720px)] border-0 bg-white"
+                  className="w-full h-[min(78vh,900px)] border-0 bg-[#e8eef3]"
                 />
               )}
             </div>

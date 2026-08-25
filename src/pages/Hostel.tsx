@@ -6,10 +6,7 @@ import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Button, Card, Spinner } from '../components/ui';
-
-function money(n?: number | string | null) {
-  return `₦${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { formatNaira } from '../lib/money';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -328,8 +325,8 @@ export default function Hostel() {
             <Field label="Hostel fee" value={
               allocation?.due_required && Number(allocation.due_amount) > 0
                 ? (allocation.status === 'pending'
-                  ? `${money(allocation.due_amount)} invoiced after approval`
-                  : money(allocation.due_amount))
+                  ? `${formatNaira(allocation.due_amount)} invoiced after approval`
+                  : formatNaira(allocation.due_amount))
                 : 'Covered in tuition'
             } />
           </dl>
@@ -376,7 +373,7 @@ export default function Hostel() {
               <li key={inv.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 first:pt-0 last:pb-0">
                 <div>
                   <p className="font-mono text-sm font-semibold text-slate-900">{inv.number}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Balance {money(inv.balance ?? inv.amount)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Balance {formatNaira(inv.balance ?? inv.amount)}</p>
                 </div>
                 <StatusPill value={inv.status} />
               </li>
@@ -384,7 +381,7 @@ export default function Hostel() {
           </ul>
         )}
         {outstanding > 0 && (
-          <p className="text-sm text-amber-800">Outstanding hostel balance {money(outstanding)}. Pay from your wallet.</p>
+          <p className="text-sm text-amber-800">Outstanding hostel balance {formatNaira(outstanding)}. Pay from your wallet.</p>
         )}
       </Section>
 
@@ -408,7 +405,7 @@ export default function Hostel() {
                   Staff must approve your request before the bed is allocated.
                   {selectedHostel
                     ? (selectedHostel.due_required && Number(selectedHostel.due_amount) > 0
-                      ? ` A hostel due of ${money(selectedHostel.due_amount)} will be invoiced only after staff approve.`
+                      ? ` A hostel due of ${formatNaira(selectedHostel.due_amount)} will be invoiced only after staff approve.`
                       : ' Hostel is covered in tuition; no separate hostel invoice will be raised.')
                     : ''}
                 </p>
