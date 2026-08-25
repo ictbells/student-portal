@@ -6,6 +6,7 @@ import { PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { formatStage, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Card } from '../components/ui';
+import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 type Stat = {
   label: string;
@@ -94,7 +95,7 @@ export default function Home() {
     cta = { to: '/apply', label: 'Pay application fee' };
   } else if (['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '')) {
     cta = { to: '/wizard', label: 'Continue application form' };
-  } else if (auth?.unpaid_acceptance_fee) {
+  } else if (hasPendingAdmissionOffer(auth)) {
     cta = { to: '/status', label: 'Accept admission' };
   } else if (isStudent) {
     cta = { to: '/profile', label: 'View my record' };
@@ -218,12 +219,22 @@ export default function Home() {
           title={`Welcome, ${auth?.user?.name?.split(' ')[0] || 'student'}`}
           description={auth?.university?.name || 'Bells University of Technology'}
           action={
-            <Link
-              to={cta.to}
-              className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition"
-            >
-              {cta.label}
-            </Link>
+            hasPendingAdmissionOffer(auth) ? (
+              <button
+                type="button"
+                onClick={openOfferPrompt}
+                className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
+              >
+                Accept admission
+              </button>
+            ) : (
+              <Link
+                to={cta.to}
+                className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition"
+              >
+                {cta.label}
+              </Link>
+            )
           }
         />
           </div>
@@ -235,6 +246,24 @@ export default function Home() {
           Pay your application fee to unlock the form.{' '}
           <Link to="/apply" className="underline font-medium">Go to payment</Link>
         </Alert>
+      )}
+
+      {hasPendingAdmissionOffer(auth) && (
+        <Card className="border-emerald-200 bg-emerald-50/60 space-y-3">
+          <div>
+            <h2 className="font-semibold text-emerald-900">Congratulations — admission offer issued</h2>
+            <p className="text-sm text-emerald-800/80 mt-1">
+              Review your admission letter and pay the acceptance fee to complete acceptance.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openOfferPrompt}
+            className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+          >
+            View offer and accept
+          </button>
+        </Card>
       )}
 
       {!isStudent && (

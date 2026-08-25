@@ -7,6 +7,7 @@ import { PassportPhoto } from '../components/PassportPhoto';
 import { useToast } from '../components/toast';
 import { formatStage, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Button, Card, Spinner } from '../components/ui';
+import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 function statusTone(stage?: string) {
   if (!stage) return 'default' as const;
@@ -218,10 +219,10 @@ export default function Status() {
         </Alert>
       )}
 
-      {auth?.unpaid_acceptance_fee && (
+      {hasPendingAdmissionOffer(auth) && (
         <Card className="border-emerald-200 bg-emerald-50/50 space-y-4">
           <div>
-            <h2 className="font-semibold text-emerald-900">Accept your admission</h2>
+            <h2 className="font-semibold text-emerald-900">Congratulations — you have an admission offer</h2>
             <p className="text-sm text-emerald-800/80 mt-1">
               Your offer is ready. Review the admission letter, then pay the non-refundable acceptance fee to complete acceptance and create your student record.
             </p>
@@ -237,6 +238,12 @@ export default function Status() {
             )}
           </div>
           <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={openOfferPrompt}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            >
+              Accept offer
+            </Button>
             {canPrintOffer && (
               <Button
                 onClick={() => openPrint('offer')}
@@ -246,20 +253,14 @@ export default function Status() {
                 {printLoading ? <Spinner label="Opening…" /> : 'View admission letter'}
               </Button>
             )}
-            {app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' ? (
+            {app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' && (
               <Button
                 onClick={() => payAcceptance(app.acceptance_fee_invoice.id)}
                 disabled={payingAcceptance}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                className="bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 shadow-sm"
               >
                 {payingAcceptance ? <Spinner label="Starting payment…" /> : 'Pay acceptance fee'}
               </Button>
-            ) : (
-              <Link to="/invoices">
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                  Open transaction history to pay
-                </Button>
-              </Link>
             )}
           </div>
         </Card>
@@ -404,7 +405,7 @@ export default function Status() {
                 View admission letter
               </Button>
             )}
-            {auth?.unpaid_acceptance_fee && app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' && (
+            {hasPendingAdmissionOffer(auth) && app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' && (
               <Button
                 onClick={() => payAcceptance(app.acceptance_fee_invoice.id)}
                 disabled={payingAcceptance}

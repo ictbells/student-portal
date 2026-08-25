@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import api, { networkErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
+import { resetOfferPrompt } from '../lib/offer';
 
 export default function Login() {
   const [login, setLogin] = useState('');
@@ -28,18 +29,13 @@ export default function Login() {
     try {
       const { data } = await api.post('/api/login', { login: login.trim(), password, portal: 'student' });
       if (data.token) sessionStorage.setItem('bells_student_token', data.token);
+      resetOfferPrompt();
       setAuth(data);
       toast.success('Signed in');
       if (!data.portal_access && data.unpaid_application_fee) nav('/apply');
       else nav('/');
-    } catch (err: any) {
-      toast.error(
-        err.response?.data?.message
-        || err.response?.data?.errors?.login?.[0]
-        || (err.response
-          ? 'Unable to sign in'
-          : 'Cannot reach the server from this device. Check the address (www vs non-www) and your connection.'),
-      );
+    } catch (err: unknown) {
+      toast.error(networkErrorMessage(err));
     } finally {
       setLoading(false);
     }

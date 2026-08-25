@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api';
+import api, { networkErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
@@ -173,10 +173,10 @@ export default function Signup() {
       setAuth(data);
       toast.success('Account created');
       nav('/apply');
-    } catch (err: any) {
-      const msg = err.response?.data?.message;
-      const errors = err.response?.data?.errors;
-      toast.error(errors ? Object.values(errors).flat().join(' ') : msg || 'Could not create account.');
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+      const errors = ax.response?.data?.errors;
+      toast.error(errors ? Object.values(errors).flat().join(' ') : networkErrorMessage(err, 'Could not create account.'));
     } finally {
       setLoading(false);
     }

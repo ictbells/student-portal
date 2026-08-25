@@ -2,51 +2,17 @@ import axios from 'axios';
 
 const baseURL = import.meta.env.VITE_API_URL || '';
 
+/**
+ * Student portal auth is Bearer tokens in sessionStorage (not cookie sessions).
+ * Keep withCredentials off so Mobile Safari / cross-subdomain hosts do not
+ * abort requests while trying to attach third-party cookies to bells-api.
+ */
 const api = axios.create({
   baseURL,
-  withCredentials: true,
-  withXSRFToken: true,
-  xsrfCookieName: 'Bells-XSRF-TOKEN',
-  xsrfHeaderName: 'X-XSRF-TOKEN',
+  withCredentials: false,
 });
 
-const CSRF_EXEMPT = [
-  '/api/login',
-  '/api/register',
-  '/api/nin/preview',
-  '/api/forgot-password',
-  '/api/reset-password',
-];
-
-function isCsrfExempt(url?: string) {
-  const path = String(url || '');
-  return CSRF_EXEMPT.some((prefix) => path.includes(prefix));
-}
-
-let csrfPromise: Promise<void> | null = null;
-
-function ensureCsrfCookie() {
-  if (!csrfPromise) {
-    csrfPromise = api
-      .get('/api/sanctum/csrf-cookie')
-      .then(() => undefined)
-      .catch((err) => {
-        csrfPromise = null;
-        throw err;
-      });
-  }
-  return csrfPromise;
-}
-
-api.interceptors.request.use(async (config) => {
-  const method = (config.method ?? 'get').toLowerCase();
-  if (!['get', 'head', 'options'].includes(method) && !isCsrfExempt(config.url)) {
-    try {
-      await ensureCsrfCookie();
-    } catch {
-      // Mobile Safari / www hosts may block the CSRF cookie. Login is CSRF-exempt.
-    }
-  }
+api.interceptors.request.use((config) => {
   const token = sessionStorage.getItem('bells_student_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -65,5 +31,14 @@ api.interceptors.response.use(
     return Promise.reject(err);
   },
 );
+
+export function networkErrorMessage(err: unknown, fallback = 'Unable to sign in'): string {
+  const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } }; message?: string; code?: string };
+  const fromApi = ax.response?.data?.message || ax.response?.data?.errors?.login?.[0];
+  if (fromApi) return fromApi;
+  if (ax.response) return fallback;
+  const apiHost = (baseURL || '(same origin)').replace(/\/$/, '');
+  return `Cannot reach the API (${apiHost}). On this phone open that URL — if it fails, check www vs non-www and mobile data vs Wi‑Fi.`;
+}
 
 export default api;

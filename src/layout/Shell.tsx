@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth';
 import api from '../api';
 import { NotificationBell } from './NotificationBell';
+import OfferAcceptanceModal from '../components/OfferAcceptanceModal';
 import { PassportPhoto } from '../components/PassportPhoto';
+import { hasPendingAdmissionOffer } from '../lib/offer';
 
 function CalendarIcon() {
   return (
@@ -56,7 +58,7 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
     { to: '/', label: 'Home', icon: 'home', show: true },
     { to: '/apply', label: 'Apply', icon: 'apply', show: !auth?.is_student },
     { to: '/wizard', label: 'Application form', icon: 'wizard', show: auth?.portal_access && !auth?.is_student && ['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '') },
-    { to: '/status', label: 'Status', icon: 'status', show: !auth?.is_student && !!auth?.lifecycle_stage && auth.lifecycle_stage !== 'started' },
+    { to: '/status', label: hasPendingAdmissionOffer(auth) ? 'Accept offer' : 'Status', icon: 'status', show: !auth?.is_student && !!auth?.lifecycle_stage && auth.lifecycle_stage !== 'started' },
     { to: '/invoices', label: 'Transaction history', icon: 'invoices', show: true },
     { to: '/profile', label: 'My record', icon: 'profile', show: !!auth?.is_student },
     { to: '/wallet', label: 'Wallet', icon: 'wallet', show: !!auth?.is_student },
@@ -268,6 +270,7 @@ export function Shell() {
             <Outlet />
           </div>
         </main>
+        <OfferAcceptanceModal />
       </div>
     </div>
   );

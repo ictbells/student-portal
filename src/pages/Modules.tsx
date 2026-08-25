@@ -6,6 +6,7 @@ import { DocumentPreviewThumb } from '../components/DocumentPreviewThumb';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
+import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
 const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee'];
@@ -1014,10 +1015,10 @@ export function Documents() {
         />
       </div>
 
-      {auth?.unpaid_acceptance_fee && (
+      {hasPendingAdmissionOffer(auth) && (
         <Card className="border-emerald-200 bg-emerald-50/50 space-y-4">
           <div>
-            <h2 className="font-semibold text-emerald-900">Accept your admission</h2>
+            <h2 className="font-semibold text-emerald-900">Congratulations — you have an admission offer</h2>
             <p className="text-sm text-emerald-800/80 mt-1">
               Open your admission letter, then pay the acceptance fee to accept the offer.
             </p>
@@ -1028,6 +1029,12 @@ export function Documents() {
             )}
           </div>
           <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={openOfferPrompt}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            >
+              Accept offer
+            </Button>
             {canViewOffer && (
               <Button
                 onClick={() => openOfferLetter(issued.find((d) => d.type === 'offer_letter'))}
@@ -1037,18 +1044,14 @@ export function Documents() {
                 {printLoading ? <Spinner label="Opening…" /> : 'View admission letter'}
               </Button>
             )}
-            {app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' ? (
+            {app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' && (
               <Button
                 onClick={() => payAcceptance(app.acceptance_fee_invoice.id)}
                 disabled={payingAcceptance}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                className="bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 shadow-sm"
               >
                 {payingAcceptance ? <Spinner label="Starting payment…" /> : 'Pay acceptance fee'}
               </Button>
-            ) : (
-              <Link to="/invoices">
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">Transaction history</Button>
-              </Link>
             )}
           </div>
         </Card>
