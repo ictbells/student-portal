@@ -73,8 +73,8 @@ export default function Login() {
           />
           <ul className="mt-3 space-y-1.5 rounded-xl border border-[#eee8dc] bg-parchment/80 px-3.5 py-3 text-xs text-slate-500">
             <li><span className="font-medium text-brand">UTME</span> — JAMB registration number</li>
-            <li><span className="font-medium text-brand">Other applicants</span> — application number</li>
             <li><span className="font-medium text-brand">Matriculated</span> — matric number</li>
+            <li><span className="font-medium text-brand">Other applicants</span> — application number</li>
           </ul>
         </div>
         <div>

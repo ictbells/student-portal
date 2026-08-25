@@ -55,6 +55,18 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
+function intakeOptionLabel(intake: OpenIntake): string {
+  const mode = MODE_LABELS[intake.entry_mode]?.label || intake.entry_mode.toUpperCase();
+  const session = intake.term?.session_label?.trim();
+  const name = intake.name?.trim();
+  if (session && name && name !== session) {
+    return `${mode} — ${name} (${session})`;
+  }
+  if (name) return `${mode} — ${name}`;
+  if (session) return `${mode} — ${session}`;
+  return mode;
+}
+
 export default function Signup() {
   const [step, setStep] = useState<'intake' | 'nin' | 'register'>('intake');
   const [intakes, setIntakes] = useState<OpenIntake[] | null>(null);
@@ -236,40 +248,40 @@ export default function Signup() {
 
           {step === 'intake' && (
             <form onSubmit={continueFromIntake} className="space-y-5">
-              <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label="Application session">
-                {intakes!.map((intake) => {
-                  const mode = MODE_LABELS[intake.entry_mode] ?? {
-                    label: intake.entry_mode.toUpperCase(),
-                    desc: intake.name,
-                  };
-                  const selected = selectedIntakeId === intake.id;
-                  return (
-                    <button
-                      key={intake.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => {
-                        setSelectedIntakeId(intake.id);
-                        if (!['utme', 'de'].includes(intake.entry_mode)) {
-                          setJambRegistration('');
-                        }
-                      }}
-                      className={`relative w-full rounded-2xl border p-4 text-left transition ${
-                        selected
-                          ? 'border-crest-gold bg-[#fbf6e8] ring-2 ring-[#e8d48a]'
-                          : 'border-[#eee8dc] bg-white hover:border-[#d9d0bf]'
-                      }`}
-                    >
-                      <div className="pr-6 font-semibold text-brand">{mode.label}</div>
-                      <div className="mt-1 text-xs leading-relaxed text-slate-500">{mode.desc}</div>
-                      <div className="mt-2 text-xs text-slate-400">{intake.name}</div>
-                      {intake.term?.session_label && (
-                        <div className="mt-1 text-xs text-slate-400">{intake.term.session_label}</div>
-                      )}
-                    </button>
-                  );
-                })}
+              <div>
+                <Label htmlFor="intake">Admission category</Label>
+                <select
+                  id="intake"
+                  value={selectedIntakeId ?? ''}
+                  onChange={(e) => {
+                    const nextId = e.target.value ? Number(e.target.value) : null;
+                    setSelectedIntakeId(Number.isFinite(nextId) ? nextId : null);
+                    const next = intakes?.find((intake) => intake.id === nextId);
+                    if (!next || !['utme', 'de'].includes(next.entry_mode)) {
+                      setJambRegistration('');
+                    }
+                  }}
+                  required
+                  className="w-full border border-[#e4ddd0] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-crest-gold/25 focus:border-crest-gold transition"
+                >
+                  <option value="" disabled>
+                    Select an open application session
+                  </option>
+                  {intakes!.map((intake) => (
+                    <option key={intake.id} value={intake.id}>
+                      {intakeOptionLabel(intake)}
+                    </option>
+                  ))}
+                </select>
+                {selectedIntake && (
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                    {MODE_LABELS[selectedIntake.entry_mode]?.desc
+                      || 'Use the session that matches your admission category.'}
+                    {selectedIntake.closes_on
+                      ? ` Closes ${formatDate(selectedIntake.closes_on)}.`
+                      : ''}
+                  </p>
+                )}
               </div>
               {requiresJamb && (
                 <div>

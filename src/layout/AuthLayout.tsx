@@ -62,14 +62,15 @@ export default function AuthLayout({ title, subtitle, kicker = 'Student admissio
               <p className="mt-1 text-sm text-sky-100/80">Official applicant portal</p>
             </div>
           </div>
-          <h1 className="mt-10 max-w-md font-serif text-4xl leading-tight font-medium tracking-tight">
+          <h1 className="mt-10 max-w-xl font-serif text-4xl leading-tight font-medium tracking-tight">
             Bells University of Technology
+            <span className="mx-3 font-sans text-xl font-normal text-crest-gold/70" aria-hidden>
+              ·
+            </span>
+            <span className="font-serif text-2xl italic font-normal text-[#f0d789]">Chords of Knowledge</span>
           </h1>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-sky-100/85">
             A secure portal for applications, admission status, and enrolment services.
-          </p>
-          <p className="mt-6 border-l-2 border-crest-gold pl-4 font-serif text-lg italic text-[#f0d789]">
-            Chords of Knowledge
           </p>
           <div className="mt-10 flex flex-wrap gap-2">
             {['Apply online', 'Track status', 'Pay securely'].map((item) => (
@@ -100,8 +101,11 @@ export default function AuthLayout({ title, subtitle, kicker = 'Student admissio
               alt="Bells University of Technology crest"
               className="mx-auto h-[4.5rem] w-[4.5rem] rounded-full bg-white p-1 shadow-md ring-2 ring-crest-gold/70"
             />
-            <p className="mt-3 font-serif text-xl text-brand">Bells University of Technology</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[#8a7320]">Chords of Knowledge</p>
+            <p className="mt-3 font-serif text-xl text-brand">
+              Bells University of Technology
+              <span className="mx-2 text-sm text-crest-gold/80" aria-hidden>·</span>
+              <span className="font-serif text-base italic text-[#8a7320]">Chords of Knowledge</span>
+            </p>
             <AdmissionsContact contact={contact} compact />
           </div>
 
