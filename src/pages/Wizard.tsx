@@ -556,8 +556,10 @@ export default function Wizard() {
     if (verifying || nin.length !== 11) return;
     setVerifying(true);
     try {
-      await api.post(`/api/applications/${app.id}/nin`, { nin: nin.trim() });
-      toast.success('NIN verified. Your identity details are now locked.');
+      const { data } = await api.post(`/api/applications/${app.id}/nin`, { nin: nin.trim() });
+      toast.success(data?.live === false
+        ? 'NIN accepted in demo mode. Identity is locked, but this was not a live Prembly check.'
+        : 'NIN verified. Your identity details are now locked.');
       await load(app.id);
       await refresh();
     } catch (e: any) {

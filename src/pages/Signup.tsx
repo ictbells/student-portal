@@ -14,6 +14,7 @@ type IdentityPreview = {
   last_name: string;
   date_of_birth?: string;
   gender?: string;
+  live?: boolean;
 };
 
 const IDENTITY_FIELDS = [
@@ -53,7 +54,9 @@ export default function Signup() {
       const { data } = await api.post<IdentityPreview>('/api/nin/preview', { nin: nin.trim() });
       setIdentity(data);
       setStep('register');
-      toast.success('NIN verified');
+      toast.success(data.live === false
+        ? 'NIN accepted in demo mode — this was not a live Prembly check.'
+        : 'NIN verified');
     } catch (err: any) {
       const errors = err.response?.data?.errors;
       toast.error(errors ? Object.values(errors).flat().join(' ') : err.response?.data?.message || 'NIN verification failed.');
