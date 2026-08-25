@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
@@ -35,6 +35,46 @@ type OpenIntake = {
   application_fee_amount?: number | string;
   term?: { session_label?: string };
 };
+
+function ApplyProgress({ current }: { current: 1 | 2 | 3 }) {
+  const steps = [
+    { n: 1 as const, label: 'Select' },
+    { n: 2 as const, label: 'Pay fee' },
+    { n: 3 as const, label: 'Form' },
+  ];
+  return (
+    <ol className="grid grid-cols-3 gap-2 text-xs" aria-label="Application progress">
+      {steps.map((step) => {
+        const active = current === step.n;
+        const done = current > step.n;
+        return (
+          <li
+            key={step.n}
+            className={`rounded-xl border px-2.5 py-2.5 text-center sm:px-3 ${
+              active
+                ? 'border-sky-400 bg-sky-50 text-sky-900'
+                : done
+                  ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800'
+                  : 'border-slate-200 bg-white text-slate-400'
+            }`}
+          >
+            <span className="font-semibold">{step.n}</span>
+            <span className="mt-0.5 block truncate">{step.label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 border-b border-slate-100 py-3 last:border-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="min-w-0 break-words text-sm font-medium text-slate-900 sm:text-right">{children}</dd>
+    </div>
+  );
+}
 
 export default function Apply() {
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
@@ -173,23 +213,23 @@ export default function Apply() {
   };
 
   const feePaid = app?.application_fee_invoice?.status === 'paid';
+  const progressStep: 1 | 2 | 3 = !app ? 1 : feePaid ? 3 : 2;
 
   const passportUrl = auth?.nin_identity?.photo_url
     || storageUrl(biodataPhotoPath(app))
     || null;
-  const passportSaved = !!(
-    auth?.nin_identity?.photo_path
-    || biodataPhotoPath(app)
-    || app?.documents?.some((doc: any) => doc.doc_type === 'passport')
-  );
+
+  const primaryBtn = 'w-full min-h-12 sm:min-h-11 sm:w-auto touch-manipulation shadow-sm';
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="mx-auto max-w-3xl space-y-5 pb-24 sm:space-y-8 sm:pb-8">
       <PageHeader
         eyebrow="Admissions"
         title="Start your application"
-        description="Choose an open application window, pay the application fee, then complete the form."
+        description="Choose a window, pay the fee, then complete the form."
       />
+
+      <ApplyProgress current={progressStep} />
 
       {auth?.nin_identity && (
         <IdentityCard
@@ -201,55 +241,63 @@ export default function Apply() {
           verified
         />
       )}
-      {auth?.nin_identity && passportSaved && (
-        <p className="text-sm text-emerald-700 -mt-4">Passport photo from NIN is saved to your application file.</p>
-      )}
 
       {!app && (
-        <Card className="space-y-4 p-4 sm:p-5">
+        <Card className="space-y-5 !p-4 sm:!p-6">
           {!openIntakes.length ? (
             <Alert tone="info">No application windows are open right now. Check back when admissions are announced.</Alert>
           ) : (
             <>
-              <p className="text-sm font-medium text-slate-700">Select admission category</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Select admission category</p>
+                <p className="mt-1 text-xs text-slate-500 sm:hidden">Tap a category to continue.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Admission category">
                 {openIntakes.map((intake) => {
                   const mode = modeLabels[intake.entry_mode] ?? {
                     label: intake.entry_mode.toUpperCase(),
                     desc: intake.name,
                   };
+                  const selected = selectedIntakeId === intake.id;
                   return (
                     <button
                       key={intake.id}
                       type="button"
+                      role="radio"
+                      aria-checked={selected}
                       onClick={() => setSelectedIntakeId(intake.id)}
-                      className={`w-full min-w-0 text-left border rounded-2xl p-4 transition shadow-sm ${
-                        selectedIntakeId === intake.id
+                      className={`relative w-full min-h-[4.5rem] min-w-0 touch-manipulation rounded-2xl border p-4 text-left transition shadow-sm ${
+                        selected
                           ? 'border-sky-500 bg-sky-50/80 ring-2 ring-sky-200 shadow-sky-100'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'
+                          : 'border-slate-200 bg-white active:bg-slate-50 hover:border-slate-300 hover:shadow-md'
                       }`}
                     >
-                      <div className="font-semibold text-slate-900">{mode.label}</div>
-                      <div className="text-xs text-slate-500 mt-1 leading-relaxed break-words">{mode.desc}</div>
-                      <div className="text-xs text-slate-400 mt-2 break-words">{intake.name}</div>
+                      {selected && (
+                        <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-sky-600 text-xs font-bold text-white">
+                          ✓
+                        </span>
+                      )}
+                      <div className="pr-8 font-semibold text-slate-900">{mode.label}</div>
+                      <div className="mt-1 text-xs leading-relaxed text-slate-500 break-words">{mode.desc}</div>
+                      <div className="mt-2 text-xs text-slate-400 break-words">{intake.name}</div>
                     </button>
                   );
                 })}
               </div>
-              {selectedIntake && selectedIntake.term?.session_label && (
-                <div className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 break-words space-y-1">
-                  <div>
-                    <span className="font-medium">Session:</span>{' '}
-                    {selectedIntake.term.session_label}
-                  </div>
-                  {selectedIntake.application_fee_amount != null && (
-                    <div>
-                      <span className="font-medium">Application fee:</span>{' '}
-                      ₦{Number(selectedIntake.application_fee_amount).toLocaleString()}
-                    </div>
+
+              {selectedIntake && (selectedIntake.term?.session_label || selectedIntake.application_fee_amount != null) && (
+                <dl className="rounded-xl border border-slate-200 bg-slate-50/80 px-3 sm:px-4">
+                  {selectedIntake.term?.session_label && (
+                    <DetailRow label="Session">{selectedIntake.term.session_label}</DetailRow>
                   )}
-                </div>
+                  {selectedIntake.application_fee_amount != null && (
+                    <DetailRow label="Application fee">
+                      ₦{Number(selectedIntake.application_fee_amount).toLocaleString()}
+                    </DetailRow>
+                  )}
+                </dl>
               )}
+
               {requiresJamb && (
                 <div>
                   <Label htmlFor="jamb">
@@ -260,70 +308,130 @@ export default function Apply() {
                     value={jambRegistration}
                     onChange={(e) => setJambRegistration(e.target.value.toUpperCase())}
                     required
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="done"
                     placeholder="e.g. 20261234AB"
+                    className="min-h-12 text-base sm:min-h-0 sm:text-sm"
                   />
                 </div>
               )}
-              <Button
-                onClick={start}
-                disabled={starting || !selectedIntake}
-                className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
-              >
-                {starting ? <Spinner label="Starting…" /> : 'Create application'}
-              </Button>
+
+              {/* Desktop / in-card CTA; sticky bar handles phones */}
+              <div className="hidden sm:block">
+                <Button
+                  onClick={start}
+                  disabled={starting || !selectedIntake}
+                  className={`${primaryBtn} bg-sky-600 hover:bg-sky-700 text-white`}
+                >
+                  {starting ? <Spinner label="Starting…" /> : 'Create application'}
+                </Button>
+              </div>
             </>
           )}
         </Card>
       )}
 
       {app && !feePaid && (
-        <Card className="space-y-4 border-amber-200 bg-amber-50/50 p-4 sm:p-5">
+        <Card className="space-y-4 border-amber-200 bg-amber-50/50 !p-4 sm:!p-6">
           {app.application_number && (
             <Alert tone="info">
-              Your application number is <strong className="font-mono">{app.application_number}</strong>.
-              Save it — you will use it to sign in if you do not have a JAMB number.
+              Save your application number — use it to sign in if you do not have a JAMB number.
             </Alert>
           )}
           <Alert tone="warning">
-            <strong>Application fee required.</strong> Pay the fee below to unlock the application form. You cannot continue until payment is confirmed.
+            <strong>Application fee required.</strong> Pay below to unlock the form.
           </Alert>
-          <div className="text-sm space-y-2 break-words">
-            {app.application_number && (
-              <div>
-                Application number:{' '}
-                <span className="font-medium font-mono">{app.application_number}</span>
-              </div>
-            )}
-            <div>
-              Admission category:{' '}
-              <span className="font-medium uppercase">{app.entry_mode}</span>
+
+          {app.application_number && (
+            <div className="rounded-xl border border-sky-200 bg-white px-4 py-3 text-center sm:text-left">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Application number</p>
+              <p className="mt-1 select-all break-all font-mono text-lg font-semibold tracking-wide text-sky-800 sm:text-xl">
+                {app.application_number}
+              </p>
             </div>
-            <div>Stage: {app.stage?.replaceAll('_', ' ')}</div>
+          )}
+
+          <dl className="rounded-xl border border-amber-100 bg-white/80 px-3 sm:px-4">
+            <DetailRow label="Category">
+              <span className="uppercase">{app.entry_mode}</span>
+            </DetailRow>
+            <DetailRow label="Stage">{app.stage?.replaceAll('_', ' ')}</DetailRow>
             {app.application_fee_invoice && (
-              <div className="text-base sm:text-lg font-semibold text-sky-700">
-                ₦{Number(app.application_fee_invoice.amount).toLocaleString()} · {app.application_fee_invoice.status}
-              </div>
+              <DetailRow label="Amount due">
+                <span className="text-base font-semibold text-sky-700 sm:text-lg">
+                  ₦{Number(app.application_fee_invoice.amount).toLocaleString()}
+                </span>
+                <span className="ml-2 text-xs font-normal capitalize text-slate-500">
+                  · {app.application_fee_invoice.status}
+                </span>
+              </DetailRow>
             )}
+          </dl>
+
+          <div className="hidden sm:block">
+            <Button
+              onClick={pay}
+              disabled={paying}
+              className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700 text-white`}
+            >
+              {paying ? <Spinner label="Processing…" /> : 'Pay application fee'}
+            </Button>
           </div>
-          <Button onClick={pay} disabled={paying} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-            {paying ? <Spinner label="Processing…" /> : 'Pay application fee'}
-          </Button>
         </Card>
       )}
 
       {feePaid && (
-        <Card className="space-y-3 p-4 sm:p-5">
+        <Card className="space-y-4 !p-4 sm:!p-6">
           <Alert tone="success">Application fee paid. You can now complete your application form.</Alert>
           {app.application_number && (
-            <p className="text-sm text-slate-600">
-              Your application number is <strong className="font-mono">{app.application_number}</strong>. Use it to sign in if you do not have a JAMB number.
-            </p>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center sm:text-left">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Application number</p>
+              <p className="mt-1 select-all break-all font-mono text-base font-semibold text-slate-800">
+                {app.application_number}
+              </p>
+            </div>
           )}
-          <Button onClick={() => nav('/wizard')} className="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white">
-            Continue application form
-          </Button>
-          <Link to="/" className="block text-sm text-sky-600 hover:underline">Back to home</Link>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              onClick={() => nav('/wizard')}
+              className={`${primaryBtn} bg-sky-500 hover:bg-sky-600 text-white`}
+            >
+              Continue application form
+            </Button>
+            <Link
+              to="/"
+              className="inline-flex min-h-11 items-center justify-center text-center text-sm text-sky-600 hover:underline touch-manipulation sm:min-h-0"
+            >
+              Back to home
+            </Link>
+          </div>
         </Card>
+      )}
+
+      {/* Sticky primary action on small screens */}
+      {!app && openIntakes.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden">
+          <Button
+            onClick={start}
+            disabled={starting || !selectedIntake}
+            className={`${primaryBtn} bg-sky-600 hover:bg-sky-700 text-white`}
+          >
+            {starting ? <Spinner label="Starting…" /> : 'Create application'}
+          </Button>
+        </div>
+      )}
+      {app && !feePaid && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden">
+          <Button
+            onClick={pay}
+            disabled={paying}
+            className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700 text-white`}
+          >
+            {paying ? <Spinner label="Processing…" /> : 'Pay application fee'}
+          </Button>
+        </div>
       )}
     </div>
   );

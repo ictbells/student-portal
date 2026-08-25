@@ -331,23 +331,26 @@ export default function Wizard() {
   const load = async (id: number) => {
     const { data } = await api.get(`/api/applications/${id}`);
     setApp(data);
+    const modeSteps = wizardSteps(data.entry_mode);
     const bio = biodataPayload(data);
     const verified = !!bio.nin_locked;
     const current = verified ? (data.current_step || 'biodata') : 'biodata';
-    const stepIndex = Math.max(0, steps.findIndex((s) => s.key === current));
+    const found = modeSteps.findIndex((s) => s.key === current);
+    const stepIndex = found >= 0 ? found : 0;
     setIdx(verified ? stepIndex : 0);
-    const step = data.steps?.find((s: any) => s.step_key === steps[verified ? stepIndex : 0].key);
+    const activeKey = modeSteps[verified ? stepIndex : 0]?.key;
+    const step = data.steps?.find((s: any) => s.step_key === activeKey);
     let stepPayload = step?.payload || {};
-    if (steps[verified ? stepIndex : 0].key === 'academic_qualifications') {
+    if (activeKey === 'academic_qualifications') {
       stepPayload = normalizeAcademicPayload(stepPayload);
     }
-    if (steps[verified ? stepIndex : 0].key === 'application_form' && !stepPayload.phone && auth?.user?.phone) {
+    if (activeKey === 'application_form' && !stepPayload.phone && auth?.user?.phone) {
       stepPayload = { ...stepPayload, phone: auth.user.phone };
     }
-    if (steps[verified ? stepIndex : 0].key === 'personal_details' && !stepPayload.country) {
+    if (activeKey === 'personal_details' && !stepPayload.country) {
       stepPayload = { ...stepPayload, country: 'Nigeria' };
     }
-    if (steps[verified ? stepIndex : 0].key === 'programme_selection') {
+    if (activeKey === 'programme_selection') {
       stepPayload = withProgrammeChoiceIds(stepPayload, programs);
     }
     setPayload(stepPayload);
@@ -385,7 +388,7 @@ export default function Wizard() {
   }, [app?.jamb_registration, auth?.user?.jamb_registration, app?.intake?.term?.session_label]);
 
   useEffect(() => {
-    if (steps[idx].key !== 'academic_qualifications' || !candidateUtme) return;
+    if (steps[idx]?.key !== 'academic_qualifications' || !candidateUtme) return;
     setPayload((prev: any) => {
       const current = prev.utme;
       const filled = current?.aggregate || current?.course_choice || current?.exam_year
@@ -437,6 +440,14 @@ export default function Wizard() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [printHtml]);
+
+  const collegeOptions = useMemo(
+    () => uniqueNamedOptions(programs.map((p) => ({
+      value: Number(facultyIdOf(p) || 0),
+      label: p.department?.faculty?.name || '',
+    }))),
+    [programs],
+  );
 
   const applyStepPayload = (appData: any, stepIndex: number) => {
     let nextPayload = appData.steps?.find((x: any) => x.step_key === steps[stepIndex].key)?.payload || {};
@@ -598,7 +609,10 @@ export default function Wizard() {
     return <Navigate to="/apply" replace />;
   }
 
-  const step = steps[idx];
+  const step = steps[idx] ?? steps[0];
+  if (!step) {
+    return <Alert tone="error">Could not load application steps. <Link to="/apply" className="text-sky-600 underline">Back to apply</Link></Alert>;
+  }
   const firstSitting: OlevelSitting = payload.first_sitting || emptySitting();
   const secondSitting: OlevelSitting = payload.second_sitting || { ...emptySitting(), results: [] };
   const bio = biodataPayload(app);
@@ -620,14 +634,6 @@ export default function Wizard() {
   const setField = (key: string, value: string | boolean) => {
     setPayload((prev: any) => ({ ...prev, [key]: value }));
   };
-
-  const collegeOptions = useMemo(
-    () => uniqueNamedOptions(programs.map((p) => ({
-      value: Number(facultyIdOf(p) || 0),
-      label: p.department?.faculty?.name || '',
-    }))),
-    [programs],
-  );
 
   const departmentsFor = (collegeId: number | string) => {
     const id = Number(collegeId);
