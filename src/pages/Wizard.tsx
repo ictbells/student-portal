@@ -529,6 +529,10 @@ export default function Wizard() {
   };
 
   const save = async () => {
+    if (steps[idx].key === 'programme_selection' && !Number(payload.first_choice_program_id)) {
+      toast.error('Select a first-choice programme before continuing.');
+      return;
+    }
     setSaving(true);
     try {
       let body = payload;
@@ -598,6 +602,15 @@ export default function Wizard() {
   };
 
   const submit = async () => {
+    const programmeId = Number(
+      app?.program_id
+      || app?.steps?.find((s: any) => s.step_key === 'programme_selection')?.payload?.first_choice_program_id
+      || payload.first_choice_program_id,
+    );
+    if (!programmeId) {
+      toast.error('Select a programme before submitting your application.');
+      return;
+    }
     setSaving(true);
     try {
       await api.post(`/api/applications/${app.id}/steps`, { step_key: steps[idx].key, payload });
@@ -638,6 +651,11 @@ export default function Wizard() {
   const requiredDocs = requiredDocumentsFor(app?.entry_mode, nyscStatus);
   const eligibility = app?.eligibility;
   const firstChoiceProgram = programs.find((p: any) => p.id === Number(payload.first_choice_program_id || app.program_id));
+  const selectedProgrammeId = Number(
+    step.key === 'programme_selection'
+      ? payload.first_choice_program_id
+      : (app.program_id || app.steps?.find((s: any) => s.step_key === 'programme_selection')?.payload?.first_choice_program_id),
+  ) || 0;
   const uploadedDocTypes = new Set((app?.documents || []).map((d: any) => d.doc_type));
   const docByType = (key: string) => (app?.documents || []).find((d: any) => d.doc_type === key);
 
@@ -1220,110 +1238,110 @@ export default function Wizard() {
           </FormSection>
         )}
 
+        {step.key === 'utme' && (
+          <FormSection
+            title="JAMB / UTME information"
+            description="Enter your UTME year, aggregate, course choice, four subject scores, and JAMB institution choices. Values from the admission list are filled in when available."
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="utme_exam_year">Examination year</Label>
+                  <select
+                    id="utme_exam_year"
+                    className={selectClass}
+                    value={payload.utme?.exam_year || ''}
+                    onChange={(e) => updateUtme('exam_year', e.target.value)}
+                  >
+                    <option value="">Select year</option>
+                    {OLEVEL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="utme_aggregate">Aggregate</Label>
+                  <Input
+                    id="utme_aggregate"
+                    value={payload.utme?.aggregate || ''}
+                    onChange={(e) => updateUtme('aggregate', e.target.value)}
+                    placeholder="e.g. 248.12"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="utme_course_choice">Programme choice (JAMB)</Label>
+                  <Input
+                    id="utme_course_choice"
+                    value={payload.utme?.course_choice || ''}
+                    onChange={(e) => updateUtme('course_choice', e.target.value)}
+                    placeholder="Programme chosen in JAMB"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-800">Subject scores</p>
+                {(payload.utme?.subjects || emptyUtme().subjects).map((row: any, index: number) => (
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.75rem_auto] gap-2 items-center">
+                    <select
+                      className={`${selectClass} min-w-0`}
+                      value={row.subject || ''}
+                      onChange={(e) => updateUtmeSubject(index, 'subject', e.target.value)}
+                    >
+                      <option value="">Select subject</option>
+                      {olevelSubjects.map((s) => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                      {row.subject && !olevelSubjects.some((s) => s.name === row.subject) && (
+                        <option value={row.subject}>{row.subject}</option>
+                      )}
+                    </select>
+                    <Input
+                      placeholder="Score"
+                      value={row.score || ''}
+                      onChange={(e) => updateUtmeSubject(index, 'score', e.target.value)}
+                    />
+                    <Button type="button" onClick={() => removeUtmeSubject(index)} className="text-rose-700 hover:bg-rose-50 shrink-0">
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" onClick={addUtmeSubject} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
+                  Add subject
+                </Button>
+              </div>
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-800">JAMB institution choices</p>
+                {(payload.utme?.institution_choices || emptyUtmeChoices()).map((row: UtmeChoice, index: number) => (
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-end">
+                    <div>
+                      <Label>{index === 0 ? 'Choice' : ' '}</Label>
+                      <Input value={String(row.choice_order)} disabled className="bg-slate-50" />
+                    </div>
+                    <div>
+                      {index === 0 && <Label>Institution</Label>}
+                      {index > 0 && <span className="sr-only">Institution</span>}
+                      <Input
+                        value={row.institution_name}
+                        onChange={(e) => updateUtmeChoice(index, 'institution_name', e.target.value)}
+                        placeholder={index === 0 ? 'First choice university' : `${index + 1}${index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} choice`}
+                      />
+                    </div>
+                    <div>
+                      {index === 0 && <Label>Programme</Label>}
+                      {index > 0 && <span className="sr-only">Programme</span>}
+                      <Input
+                        value={row.programme_name}
+                        onChange={(e) => updateUtmeChoice(index, 'programme_name', e.target.value)}
+                        placeholder="Programme at this institution"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FormSection>
+        )}
+
         {step.key === 'academic_qualifications' && (
           <div className="space-y-6">
-            {app.entry_mode === 'utme' && (
-              <FormSection
-                title="JAMB information"
-                description="Enter your UTME year, aggregate, course choice, four subject scores, and JAMB institution choices. Values from the admission list are filled in when available."
-              >
-                <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="utme_exam_year">Examination year</Label>
-                    <select
-                      id="utme_exam_year"
-                      className={selectClass}
-                      value={payload.utme?.exam_year || ''}
-                      onChange={(e) => updateUtme('exam_year', e.target.value)}
-                    >
-                      <option value="">Select year</option>
-                      {OLEVEL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="utme_aggregate">Aggregate</Label>
-                    <Input
-                      id="utme_aggregate"
-                      value={payload.utme?.aggregate || ''}
-                      onChange={(e) => updateUtme('aggregate', e.target.value)}
-                      placeholder="e.g. 248.12"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label htmlFor="utme_course_choice">Programme choice (JAMB)</Label>
-                    <Input
-                      id="utme_course_choice"
-                      value={payload.utme?.course_choice || ''}
-                      onChange={(e) => updateUtme('course_choice', e.target.value)}
-                      placeholder="Programme chosen in JAMB"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-800">Subject scores</p>
-                  {(payload.utme?.subjects || emptyUtme().subjects).map((row: any, index: number) => (
-                    <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.75rem_auto] gap-2 items-center">
-                      <select
-                        className={`${selectClass} min-w-0`}
-                        value={row.subject || ''}
-                        onChange={(e) => updateUtmeSubject(index, 'subject', e.target.value)}
-                      >
-                        <option value="">Select subject</option>
-                        {olevelSubjects.map((s) => (
-                          <option key={s.id} value={s.name}>{s.name}</option>
-                        ))}
-                        {row.subject && !olevelSubjects.some((s) => s.name === row.subject) && (
-                          <option value={row.subject}>{row.subject}</option>
-                        )}
-                      </select>
-                      <Input
-                        placeholder="Score"
-                        value={row.score || ''}
-                        onChange={(e) => updateUtmeSubject(index, 'score', e.target.value)}
-                      />
-                      <Button type="button" onClick={() => removeUtmeSubject(index)} className="text-rose-700 hover:bg-rose-50 shrink-0">
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button type="button" onClick={addUtmeSubject} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
-                    Add subject
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  <p className="text-sm font-medium text-slate-800">JAMB institution choices</p>
-                  {(payload.utme?.institution_choices || emptyUtmeChoices()).map((row: UtmeChoice, index: number) => (
-                    <div key={index} className="grid grid-cols-1 sm:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-end">
-                      <div>
-                        <Label>{index === 0 ? 'Choice' : ' '}</Label>
-                        <Input value={String(row.choice_order)} disabled className="bg-slate-50" />
-                      </div>
-                      <div>
-                        {index === 0 && <Label>Institution</Label>}
-                        {index > 0 && <span className="sr-only">Institution</span>}
-                        <Input
-                          value={row.institution_name}
-                          onChange={(e) => updateUtmeChoice(index, 'institution_name', e.target.value)}
-                          placeholder={index === 0 ? 'First choice university' : `${index + 1}${index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} choice`}
-                        />
-                      </div>
-                      <div>
-                        {index === 0 && <Label>Programme</Label>}
-                        {index > 0 && <span className="sr-only">Programme</span>}
-                        <Input
-                          value={row.programme_name}
-                          onChange={(e) => updateUtmeChoice(index, 'programme_name', e.target.value)}
-                          placeholder="Programme at this institution"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                </div>
-              </FormSection>
-            )}
-
             {renderSitting('first_sitting', "O'Level — First sitting", firstSitting)}
 
             {(secondSitting.results?.length || secondSitting.exam_type || secondSitting.exam_number) ? (
@@ -1647,7 +1665,7 @@ export default function Wizard() {
         )}
 
         {step.key === 'programme_selection' && (
-          <FormSection title="Programme selection" description="Choose college, then department, then programme. Second choice is optional.">
+          <FormSection title="Programme selection" description="A first-choice programme is required to submit. Choose college, then department, then programme. Second choice is optional.">
             <div className="grid grid-cols-1 gap-8 max-w-xl">
               <div className="space-y-4">
                 <p className="text-sm font-semibold text-slate-800">First choice</p>
@@ -1733,6 +1751,9 @@ export default function Wizard() {
                     ))}
                   </select>
                   {firstChoiceProgram && app.entry_mode === 'pg' && eligibilityBlock(firstChoiceProgram)}
+                  {!Number(payload.first_choice_program_id) && (
+                    <p className="text-sm text-amber-700 mt-2">Select a first-choice programme. You cannot submit without one.</p>
+                  )}
                 </div>
               </div>
 
@@ -1903,7 +1924,7 @@ export default function Wizard() {
 
         {(ninVerified || step.key !== 'biodata') && (
           <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified)} className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
+            <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
               {saving ? <Spinner label="Saving…" /> : idx < steps.length - 1 ? 'Save & continue' : 'Save progress'}
             </Button>
             {ninVerified && (
@@ -1917,7 +1938,7 @@ export default function Wizard() {
               </Button>
             )}
             {idx === steps.length - 1 && ['fee_paid', 'form_in_progress'].includes(app.stage) && (
-              <Button onClick={submit} disabled={saving || !ninVerified} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+              <Button onClick={submit} disabled={saving || !ninVerified || !selectedProgrammeId} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
                 {saving ? <Spinner label="Submitting…" /> : 'Submit application'}
               </Button>
             )}

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
@@ -17,6 +17,18 @@ type IdentityPreview = {
   live?: boolean;
 };
 
+type OpenIntake = {
+  id: number;
+  name: string;
+  entry_mode: string;
+  opens_on?: string;
+  closes_on?: string;
+  application_fee_amount?: number | string;
+  requires_jamb?: boolean;
+  candidate_list_required?: boolean;
+  term?: { session_label?: string };
+};
+
 const IDENTITY_FIELDS = [
   { key: 'nin', label: 'NIN' },
   { key: 'first_name', label: 'First name' },
@@ -26,17 +38,28 @@ const IDENTITY_FIELDS = [
   { key: 'gender', label: 'Gender' },
 ] as const;
 
+const MODE_LABELS: Record<string, { label: string; desc: string }> = {
+  utme: { label: 'UTME', desc: 'Unified Tertiary Matriculation Examination' },
+  de: { label: 'Direct Entry', desc: 'Diploma or A-Level direct entry' },
+  jupeb: { label: 'JUPEB', desc: 'Joint Universities Preliminary Examination Board' },
+  transfer: { label: 'Transfer', desc: 'Transfer from another institution' },
+  pg: { label: 'Postgraduate', desc: 'Masters and postgraduate programmes' },
+};
+
+export const APPLICATIONS_CLOSED_MESSAGE =
+  'Applications are not open. There is no active application session, so you cannot create an account.';
+
 function formatDate(value?: string) {
   if (!value) return '';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
-export const APPLICATIONS_CLOSED_MESSAGE =
-  'Applications are not open. There is no active application session, so you cannot create an account.';
-
 export default function Signup() {
-  const [step, setStep] = useState<'nin' | 'register'>('nin');
+  const [step, setStep] = useState<'intake' | 'nin' | 'register'>('intake');
+  const [intakes, setIntakes] = useState<OpenIntake[] | null>(null);
+  const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
+  const [jambRegistration, setJambRegistration] = useState('');
   const [nin, setNin] = useState('');
   const [identity, setIdentity] = useState<IdentityPreview | null>(null);
   const [email, setEmail] = useState('');
@@ -45,25 +68,64 @@ export default function Signup() {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [applicationsOpen, setApplicationsOpen] = useState<boolean | null>(null);
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
 
   useEffect(() => {
     api
-      .get<{ applications_open?: boolean }>('/api/portal-info')
-      .then(({ data }) => setApplicationsOpen(data.applications_open === true))
-      .catch(() => setApplicationsOpen(true));
+      .get('/api/intakes')
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : data?.data ?? [];
+        setIntakes(list);
+      })
+      .catch(() => setIntakes([]));
   }, []);
+
+  const selectedIntake = useMemo(
+    () => intakes?.find((intake) => intake.id === selectedIntakeId) ?? null,
+    [intakes, selectedIntakeId],
+  );
+  const requiresJamb = selectedIntake?.requires_jamb === true
+    || ['utme', 'de'].includes(selectedIntake?.entry_mode || '');
+  const applicationsOpen = intakes === null ? null : intakes.length > 0;
+
+  const continueFromIntake = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedIntake) {
+      toast.error('Select the application session you qualify for.');
+      return;
+    }
+    if (requiresJamb && !jambRegistration.trim()) {
+      toast.error(selectedIntake.entry_mode === 'de'
+        ? 'JAMB Direct Entry number is required for this application session.'
+        : 'JAMB registration number is required for this application session.');
+      return;
+    }
+    if (requiresJamb && selectedIntake.candidate_list_required) {
+      try {
+        await api.get(`/api/candidate-data/${encodeURIComponent(jambRegistration.trim())}`, {
+          params: selectedIntake.term?.session_label
+            ? { academic_year: selectedIntake.term.session_label }
+            : undefined,
+        });
+      } catch {
+        toast.error('This registration number is not on the candidate list for this application session.');
+        return;
+      }
+    }
+    setStep('nin');
+  };
 
   const verifyNin = async (e: FormEvent) => {
     e.preventDefault();
-    if (applicationsOpen === false) return;
-    if (verifying || nin.length !== 11) return;
+    if (!selectedIntake || verifying || nin.length !== 11) return;
     setVerifying(true);
     try {
-      const { data } = await api.post<IdentityPreview>('/api/nin/preview', { nin: nin.trim() });
+      const { data } = await api.post<IdentityPreview>('/api/nin/preview', {
+        nin: nin.trim(),
+        intake_id: selectedIntake.id,
+      });
       setIdentity(data);
       setStep('register');
       toast.success(data.live === false
@@ -79,7 +141,11 @@ export default function Signup() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (applicationsOpen === false) return;
+    if (!selectedIntake) {
+      toast.warning('Select an application session before creating an account.');
+      setStep('intake');
+      return;
+    }
     if (!identity) {
       toast.warning('Verify your NIN before creating an account.');
       setStep('nin');
@@ -91,13 +157,18 @@ export default function Signup() {
     }
     setLoading(true);
     try {
-      const { data } = await api.post('/api/register', {
+      const payload: Record<string, unknown> = {
         nin: identity.nin,
         email,
         phone,
         password,
         password_confirmation: confirm,
-      });
+        intake_id: selectedIntake.id,
+      };
+      if (requiresJamb) {
+        payload.jamb_registration = jambRegistration.trim();
+      }
+      const { data } = await api.post('/api/register', payload);
       if (data.token) sessionStorage.setItem('bells_student_token', data.token);
       setAuth(data);
       toast.success('Account created');
@@ -111,16 +182,27 @@ export default function Signup() {
     }
   };
 
+  const titles = {
+    closed: { title: 'Applications are closed', subtitle: APPLICATIONS_CLOSED_MESSAGE },
+    intake: {
+      title: 'Choose your session',
+      subtitle: 'Pick the application session you qualify for. An open UTME window does not admit postgraduate or transfer applicants.',
+    },
+    nin: {
+      title: 'Create your account',
+      subtitle: 'We verify your NIN first so your biodata is taken from a trusted source.',
+    },
+    register: {
+      title: 'Complete registration',
+      subtitle: 'Your identity is locked from NIN. Add contact details and a password.',
+    },
+  } as const;
+  const heading = applicationsOpen === false ? titles.closed : titles[step];
+
   return (
     <AuthLayout
-      title={applicationsOpen === false ? 'Applications are closed' : step === 'nin' ? 'Create your account' : 'Complete registration'}
-      subtitle={
-        applicationsOpen === false
-          ? APPLICATIONS_CLOSED_MESSAGE
-          : step === 'nin'
-            ? 'We verify your NIN first so your biodata is taken from a trusted source.'
-            : 'Your identity is locked from NIN. Add contact details and a password.'
-      }
+      title={heading.title}
+      subtitle={heading.subtitle}
       kicker="New applicant"
       footer={
         <p className="text-slate-500">
@@ -136,103 +218,194 @@ export default function Signup() {
         <Alert tone="warning">{APPLICATIONS_CLOSED_MESSAGE}</Alert>
       ) : (
         <>
-      <ol className="mb-6 grid grid-cols-2 gap-2 text-xs">
-        <li className={`rounded-xl border px-3 py-2 ${step === 'nin' ? 'border-crest-gold bg-[#fbf6e8] text-brand' : 'border-[#eee8dc] text-slate-400'}`}>
-          <span className="font-semibold">1</span> Verify NIN
-        </li>
-        <li className={`rounded-xl border px-3 py-2 ${step === 'register' ? 'border-crest-gold bg-[#fbf6e8] text-brand' : 'border-[#eee8dc] text-slate-400'}`}>
-          <span className="font-semibold">2</span> Account details
-        </li>
-      </ol>
-      {step === 'nin' ? (
-        <form onSubmit={verifyNin} className="space-y-5">
-          <div>
-            <Label htmlFor="nin">National Identification Number (NIN)</Label>
-            <Input
-              id="nin"
-              inputMode="numeric"
-              maxLength={11}
-              placeholder="11-digit NIN"
-              value={nin}
-              onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              required
-            />
-            <p className="mt-2 text-xs text-slate-500">{nin.length}/11 digits</p>
-          </div>
-          <Button
-            type="submit"
-            disabled={verifying || nin.length !== 11}
-            className={authPrimaryClass}
-          >
-            {verifying ? <Spinner label="Verifying…" className="text-white" /> : <span className="text-white">Verify NIN</span>}
-          </Button>
-        </form>
-      ) : (
-        <form onSubmit={submit} className="space-y-4">
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">Verified identity</p>
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {IDENTITY_FIELDS.map((field) => (
-                <div key={field.key}>
-                  <Label htmlFor={field.key}>{field.label}</Label>
+          <ol className="mb-6 grid grid-cols-3 gap-2 text-xs">
+            {([
+              ['intake', '1', 'Session'],
+              ['nin', '2', 'Verify NIN'],
+              ['register', '3', 'Account'],
+            ] as const).map(([key, n, label]) => (
+              <li
+                key={key}
+                className={`rounded-xl border px-2 py-2 ${step === key ? 'border-crest-gold bg-[#fbf6e8] text-brand' : 'border-[#eee8dc] text-slate-400'}`}
+              >
+                <span className="font-semibold">{n}</span>
+                <span className="mt-0.5 block truncate">{label}</span>
+              </li>
+            ))}
+          </ol>
+
+          {step === 'intake' && (
+            <form onSubmit={continueFromIntake} className="space-y-5">
+              <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label="Application session">
+                {intakes!.map((intake) => {
+                  const mode = MODE_LABELS[intake.entry_mode] ?? {
+                    label: intake.entry_mode.toUpperCase(),
+                    desc: intake.name,
+                  };
+                  const selected = selectedIntakeId === intake.id;
+                  return (
+                    <button
+                      key={intake.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => {
+                        setSelectedIntakeId(intake.id);
+                        if (!['utme', 'de'].includes(intake.entry_mode)) {
+                          setJambRegistration('');
+                        }
+                      }}
+                      className={`relative w-full rounded-2xl border p-4 text-left transition ${
+                        selected
+                          ? 'border-crest-gold bg-[#fbf6e8] ring-2 ring-[#e8d48a]'
+                          : 'border-[#eee8dc] bg-white hover:border-[#d9d0bf]'
+                      }`}
+                    >
+                      <div className="pr-6 font-semibold text-brand">{mode.label}</div>
+                      <div className="mt-1 text-xs leading-relaxed text-slate-500">{mode.desc}</div>
+                      <div className="mt-2 text-xs text-slate-400">{intake.name}</div>
+                      {intake.term?.session_label && (
+                        <div className="mt-1 text-xs text-slate-400">{intake.term.session_label}</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {requiresJamb && (
+                <div>
+                  <Label htmlFor="jamb">
+                    {selectedIntake?.entry_mode === 'de' ? 'JAMB Direct Entry number' : 'JAMB registration number'}
+                  </Label>
                   <Input
-                    id={field.key}
-                    readOnly
-                    className="bg-white/80"
-                    value={
-                      field.key === 'date_of_birth'
-                        ? formatDate(identity?.[field.key])
-                        : identity?.[field.key] || ''
-                    }
+                    id="jamb"
+                    value={jambRegistration}
+                    onChange={(e) => setJambRegistration(e.target.value.toUpperCase())}
+                    required
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="e.g. 20261234AB"
                   />
+                  {selectedIntake?.candidate_list_required && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      This number must appear on the university candidate list for this session.
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <p className="mt-1 text-xs text-slate-500">Used for notifications and password reset.</p>
-          </div>
-          <div>
-            <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-          </div>
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <PasswordInput
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <div className="mt-2">
-              <PasswordHints password={password} email={email} />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="confirm">Confirm password</Label>
-            <PasswordInput
-              id="confirm"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              type="button"
-              onClick={() => setStep('nin')}
-              className="w-full rounded-xl bg-parchment text-brand sm:w-auto"
-            >
-              Change NIN
-            </Button>
-            <Button type="submit" disabled={loading} className={authPrimaryClass}>
-              {loading ? <Spinner label="Creating account…" className="text-white" /> : <span className="text-white">Create account</span>}
-            </Button>
-          </div>
-        </form>
-      )}
+              )}
+              <Button type="submit" disabled={!selectedIntake} className={authPrimaryClass}>
+                <span className="text-white">Continue</span>
+              </Button>
+            </form>
+          )}
+
+          {step === 'nin' && (
+            <form onSubmit={verifyNin} className="space-y-5">
+              {selectedIntake && (
+                <Alert tone="info">
+                  Applying to <strong>{MODE_LABELS[selectedIntake.entry_mode]?.label || selectedIntake.entry_mode.toUpperCase()}</strong>
+                  {' — '}
+                  {selectedIntake.name}
+                </Alert>
+              )}
+              <div>
+                <Label htmlFor="nin">National Identification Number (NIN)</Label>
+                <Input
+                  id="nin"
+                  inputMode="numeric"
+                  maxLength={11}
+                  placeholder="11-digit NIN"
+                  value={nin}
+                  onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                  required
+                />
+                <p className="mt-2 text-xs text-slate-500">{nin.length}/11 digits</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  onClick={() => setStep('intake')}
+                  className="w-full rounded-xl bg-parchment text-brand sm:w-auto"
+                >
+                  Change session
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={verifying || nin.length !== 11}
+                  className={authPrimaryClass}
+                >
+                  {verifying ? <Spinner label="Verifying…" className="text-white" /> : <span className="text-white">Verify NIN</span>}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {step === 'register' && (
+            <form onSubmit={submit} className="space-y-4">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">Verified identity</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {IDENTITY_FIELDS.map((field) => (
+                    <div key={field.key}>
+                      <Label htmlFor={field.key}>{field.label}</Label>
+                      <Input
+                        id={field.key}
+                        readOnly
+                        className="bg-white/80"
+                        value={
+                          field.key === 'date_of_birth'
+                            ? formatDate(identity?.[field.key])
+                            : identity?.[field.key] || ''
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <p className="mt-1 text-xs text-slate-500">Used for notifications and password reset.</p>
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              </div>
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <PasswordInput
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <div className="mt-2">
+                  <PasswordHints password={password} email={email} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="confirm">Confirm password</Label>
+                <PasswordInput
+                  id="confirm"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  onClick={() => setStep('nin')}
+                  className="w-full rounded-xl bg-parchment text-brand sm:w-auto"
+                >
+                  Change NIN
+                </Button>
+                <Button type="submit" disabled={loading} className={authPrimaryClass}>
+                  {loading ? <Spinner label="Creating account…" className="text-white" /> : <span className="text-white">Create account</span>}
+                </Button>
+              </div>
+            </form>
+          )}
         </>
       )}
     </AuthLayout>

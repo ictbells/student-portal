@@ -226,7 +226,7 @@ export default function Apply() {
       <PageHeader
         eyebrow="Admissions"
         title="Start your application"
-        description="Choose a window, pay the fee, then complete the form."
+        description="Choose an application session, pay the fee, then complete the form."
       />
 
       <ApplyProgress current={progressStep} />
@@ -245,7 +245,7 @@ export default function Apply() {
       {!app && (
         <Card className="space-y-5 !p-4 sm:!p-6">
           {!openIntakes.length ? (
-            <Alert tone="info">No application windows are open right now. Check back when admissions are announced.</Alert>
+            <Alert tone="info">No application sessions are open right now. Check back when admissions are announced.</Alert>
           ) : (
             <>
               <div>
