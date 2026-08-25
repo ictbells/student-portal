@@ -132,6 +132,14 @@ export default function Status() {
     }
   };
 
+  const reviews = useMemo(() => {
+    const list = Array.isArray(app?.reviews) ? [...app.reviews] : [];
+    return list.sort((a, b) => {
+      const byTime = new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      return byTime !== 0 ? byTime : (b.id || 0) - (a.id || 0);
+    });
+  }, [app?.reviews]);
+
   const summary = useMemo(() => ([
     {
       label: 'Status',
@@ -344,11 +352,11 @@ export default function Status() {
             </Card>
           )}
 
-          {app?.reviews?.length > 0 && (
+          {reviews.length > 0 && (
             <Card>
               <h2 className="font-semibold text-slate-900 mb-4">Updates</h2>
               <ol className="relative space-y-0 border-l border-slate-200 ml-2">
-                {app.reviews.map((r: any) => (
+                {reviews.map((r: any) => (
                   <li key={r.id} className="relative pl-6 pb-5 last:pb-0">
                     <span className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-sky-500 ring-4 ring-white" />
                     <div className="text-sm font-medium text-slate-900 capitalize">
