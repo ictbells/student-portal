@@ -10,6 +10,19 @@ const api = axios.create({
   xsrfHeaderName: 'X-XSRF-TOKEN',
 });
 
+const CSRF_EXEMPT = [
+  '/api/login',
+  '/api/register',
+  '/api/nin/preview',
+  '/api/forgot-password',
+  '/api/reset-password',
+];
+
+function isCsrfExempt(url?: string) {
+  const path = String(url || '');
+  return CSRF_EXEMPT.some((prefix) => path.includes(prefix));
+}
+
 let csrfPromise: Promise<void> | null = null;
 
 function ensureCsrfCookie() {
@@ -27,8 +40,12 @@ function ensureCsrfCookie() {
 
 api.interceptors.request.use(async (config) => {
   const method = (config.method ?? 'get').toLowerCase();
-  if (!['get', 'head', 'options'].includes(method)) {
-    await ensureCsrfCookie();
+  if (!['get', 'head', 'options'].includes(method) && !isCsrfExempt(config.url)) {
+    try {
+      await ensureCsrfCookie();
+    } catch {
+      // Mobile Safari / www hosts may block the CSRF cookie. Login is CSRF-exempt.
+    }
   }
   const token = sessionStorage.getItem('bells_student_token');
   if (token) {

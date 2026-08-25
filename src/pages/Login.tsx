@@ -33,7 +33,13 @@ export default function Login() {
       if (!data.portal_access && data.unpaid_application_fee) nav('/apply');
       else nav('/');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.errors?.login?.[0] || 'Unable to sign in');
+      toast.error(
+        err.response?.data?.message
+        || err.response?.data?.errors?.login?.[0]
+        || (err.response
+          ? 'Unable to sign in'
+          : 'Cannot reach the server from this device. Check the address (www vs non-www) and your connection.'),
+      );
     } finally {
       setLoading(false);
     }
@@ -64,6 +70,10 @@ export default function Login() {
             required
             placeholder="APP/2026/00001, JAMB, or matric number"
             autoComplete="username"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="text"
           />
           <ul className="mt-3 space-y-1.5 rounded-xl border border-[#eee8dc] bg-parchment/80 px-3.5 py-3 text-xs text-slate-500">
             <li><span className="font-medium text-brand">UTME</span> — JAMB registration number</li>
