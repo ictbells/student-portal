@@ -98,10 +98,17 @@ function formatSemesterLabel(semester: string) {
   return /semester/i.test(semester) ? semester : `${semester} Semester`;
 }
 
-function sessionNavLabel(session?: string | null, semester?: string | null) {
+function sessionNavLabel(
+  session?: string | null,
+  semester?: string | null,
+  kind?: string | null,
+) {
   if (!session) return null;
-  if (semester) return `Session: ${session} - ${formatSemesterLabel(semester)}`;
-  return `Session: ${session}`;
+  if (kind === 'application') {
+    return `Application session: ${session}`;
+  }
+  if (semester) return `Admission session: ${session} - ${formatSemesterLabel(semester)}`;
+  return `Admission session: ${session}`;
 }
 
 export function Shell() {
@@ -140,7 +147,11 @@ export function Shell() {
     nav('/login');
   };
 
-  const sessionLabel = sessionNavLabel(auth?.current_session, auth?.current_semester);
+  const sessionLabel = sessionNavLabel(
+    auth?.current_session,
+    auth?.current_semester,
+    auth?.current_session_kind ?? (auth?.is_student ? 'admission' : 'application'),
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -220,7 +231,9 @@ export function Shell() {
             {sessionLabel && (
               <div
                 className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200/80 bg-gradient-to-r from-slate-50 to-sky-50/90 px-3.5 py-1.5 text-xs shadow-sm"
-                title="Current semester and session"
+                title={auth?.current_session_kind === 'application'
+                  ? 'Current application session'
+                  : 'Current admission session and semester'}
               >
                 <CalendarIcon />
                 <span className="font-semibold text-slate-800">{sessionLabel}</span>

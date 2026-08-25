@@ -183,7 +183,12 @@ export function WalletPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Active
             </span>
-            {auth?.current_session && <span>Session {auth.current_session}</span>}
+            {auth?.current_session && (
+              <span>
+                {auth.current_session_kind === 'application' ? 'Application session' : 'Admission session'}{' '}
+                {auth.current_session}
+              </span>
+            )}
             <Link to="/invoices" className="ml-auto font-medium text-sky-200 hover:text-white transition">
               Transaction history →
             </Link>

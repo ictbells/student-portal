@@ -17,6 +17,7 @@ export type AuthState = {
   university: { name: string; motto: string };
   current_session?: string | null;
   current_semester?: string | null;
+  current_session_kind?: 'application' | 'admission' | string | null;
   current_term?: {
     id?: number | null;
     name?: string | null;
