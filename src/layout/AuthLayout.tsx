@@ -62,12 +62,11 @@ export default function AuthLayout({ title, subtitle, kicker = 'Student admissio
               <p className="mt-1 text-sm text-sky-100/80">Official applicant portal</p>
             </div>
           </div>
-          <h1 className="mt-10 max-w-xl font-serif text-4xl leading-tight font-medium tracking-tight">
+          <h1 className="mt-10 max-w-md font-serif text-3xl leading-tight font-medium tracking-tight">
             Bells University of Technology
-            <span className="mx-3 font-sans text-xl font-normal text-crest-gold/70" aria-hidden>
-              ·
+            <span className="mt-2 block font-serif text-2xl italic font-normal text-[#f0d789]">
+              Chords of Knowledge
             </span>
-            <span className="font-serif text-2xl italic font-normal text-[#f0d789]">Chords of Knowledge</span>
           </h1>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-sky-100/85">
             A secure portal for applications, admission status, and enrolment services.
@@ -103,8 +102,7 @@ export default function AuthLayout({ title, subtitle, kicker = 'Student admissio
             />
             <p className="mt-3 font-serif text-xl text-brand">
               Bells University of Technology
-              <span className="mx-2 text-sm text-crest-gold/80" aria-hidden>·</span>
-              <span className="font-serif text-base italic text-[#8a7320]">Chords of Knowledge</span>
+              <span className="mt-1 block font-serif text-base italic text-[#8a7320]">Chords of Knowledge</span>
             </p>
             <AdmissionsContact contact={contact} compact />
           </div>

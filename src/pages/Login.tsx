@@ -51,11 +51,7 @@ export default function Login() {
         </p>
       }
     >
-      {applicationsOpen === false && (
-        <Alert tone="warning">
-          New applicant accounts are paused until an application session is open.
-        </Alert>
-      )}
+      
       <form onSubmit={submit} className={`space-y-5${applicationsOpen === false ? ' mt-5' : ''}`}>
         <div>
           <Label htmlFor="login">Sign-in ID</Label>
