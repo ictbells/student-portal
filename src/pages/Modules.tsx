@@ -6,6 +6,7 @@ import { DocumentPreviewThumb } from '../components/DocumentPreviewThumb';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
+import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
@@ -13,10 +14,6 @@ const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee'];
 
 function isOnlineFee(category?: string) {
   return ONLINE_FEE_CATEGORIES.includes(String(category || ''));
-}
-
-function formatNaira(value?: number | string | null) {
-  return `₦${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatTxnDate(value?: string | null) {
@@ -213,7 +210,7 @@ export function WalletPage() {
                       : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-sky-200 hover:bg-sky-50'
                   }`}
                 >
-                  ₦{preset.toLocaleString()}
+                  {formatNaira(preset)}
                 </button>
               );
             })}
@@ -505,7 +502,7 @@ export function Invoices() {
 
   const stats = useMemo(() => ([
     { label: 'Outstanding', value: String(unpaid.length), tone: unpaid.length ? 'warning' : 'success' },
-    { label: 'Amount due', value: `₦${totalDue.toLocaleString()}`, tone: totalDue > 0 ? 'warning' : 'success' },
+    { label: 'Amount due', value: formatNaira(totalDue), tone: totalDue > 0 ? 'warning' : 'success' },
     { label: 'Completed', value: String(paid.length + walletTopups.length), tone: 'info' },
   ]), [unpaid.length, paid.length, walletTopups.length, totalDue]);
 
@@ -634,20 +631,20 @@ export function Invoices() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3.5 text-slate-800 whitespace-nowrap">
-                        ₦{Number(row.amount ?? 0).toLocaleString()}
+                        {formatNaira(row.amount)}
                         {!isWalletTopup && row.full_amount != null && Number(row.full_amount) !== Number(row.amount) && (
                           <div className="text-xs text-slate-500 mt-0.5">
-                            of ₦{Number(row.full_amount).toLocaleString()}
+                            of {formatNaira(row.full_amount)}
                           </div>
                         )}
                         {!isWalletTopup && Number(row.rebate_total) > 0 && (
                           <div className="text-xs text-emerald-700 mt-0.5">
-                            Rebate ₦{Number(row.rebate_total).toLocaleString()}
+                            Rebate {formatNaira(row.rebate_total)}
                           </div>
                         )}
                         {!isPaid && row.balance != null && Number(row.balance) !== Number(row.amount) && (
                           <div className="text-xs text-amber-700 mt-0.5">
-                            Balance ₦{Number(row.balance).toLocaleString()}
+                            Balance {formatNaira(row.balance)}
                           </div>
                         )}
                       </td>
@@ -1024,7 +1021,7 @@ export function Documents() {
             </p>
             {app?.acceptance_fee_invoice && (
               <p className="text-sm font-medium text-emerald-900 mt-2">
-                Acceptance fee: ₦{Number(app.acceptance_fee_invoice.amount).toLocaleString()}
+                Acceptance fee: {formatNaira(app.acceptance_fee_invoice.amount)}
               </p>
             )}
           </div>

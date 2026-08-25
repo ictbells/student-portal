@@ -6,6 +6,7 @@ import { PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { formatStage, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Card } from '../components/ui';
+import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 type Stat = {
@@ -132,7 +133,7 @@ export default function Home() {
         label: 'Application fee',
         value: feeStatus,
         hint: app?.application_fee_invoice
-          ? `₦${Number(app.application_fee_invoice.amount).toLocaleString()}`
+          ? formatNaira(app.application_fee_invoice.amount)
           : 'Fee appears after you create an application',
         tone: feeStatus === 'Paid' ? 'success' : feeStatus === 'Unpaid' ? 'warning' : 'default',
       },
@@ -172,7 +173,7 @@ export default function Home() {
       },
       {
         label: 'Wallet balance',
-        value: wallet ? `₦${Number(wallet.balance).toLocaleString()}` : '—',
+        value: wallet ? formatNaira(wallet.balance) : '—',
         hint: 'Campus wallet',
         tone: 'info',
       },

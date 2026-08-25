@@ -6,10 +6,7 @@ import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Button, Card, Input, Label, Spinner } from '../components/ui';
-
-function money(n?: number | string | null) {
-  return `₦${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { formatNaira } from '../lib/money';
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—';
@@ -260,7 +257,7 @@ export default function Clinic() {
     { label: 'Blood type', value: profile?.blood_type || '—' },
     { label: 'Genotype', value: profile?.genotype || '—' },
     { label: 'NHIS', value: nhis ? 'Enrolled' : 'Not enrolled' },
-    { label: 'Outstanding', value: money(outstanding) },
+    { label: 'Outstanding', value: formatNaira(outstanding) },
   ];
 
   return (
@@ -428,10 +425,10 @@ export default function Clinic() {
                 )}
                 {visit.bill && (
                   <p className="mt-2 text-sm text-slate-600">
-                    Payable {money(visit.bill.student_payable_amount ?? visit.bill.amount)}
+                    Payable {formatNaira(visit.bill.student_payable_amount ?? visit.bill.amount)}
                     <span className="text-slate-400"> · </span>
                     <span className="capitalize">{visit.bill.status}</span>
-                    {visit.bill.nhis_applied ? ` · NHIS covered ${money(visit.bill.nhis_covered_amount)}` : ''}
+                    {visit.bill.nhis_applied ? ` · NHIS covered ${formatNaira(visit.bill.nhis_covered_amount)}` : ''}
                   </p>
                 )}
               </li>
@@ -501,7 +498,7 @@ export default function Clinic() {
               <li key={inv.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 first:pt-0 last:pb-0">
                 <div>
                   <p className="font-mono text-sm font-semibold text-slate-900">{inv.number}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Balance {money(inv.balance ?? inv.amount)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Balance {formatNaira(inv.balance ?? inv.amount)}</p>
                 </div>
                 <StatusPill value={inv.status} />
               </li>

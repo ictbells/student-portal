@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { IdentityCard, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
+import { formatNaira } from '../lib/money';
 import { storageUrl } from '../lib/storage';
 
 const JAMB_ENTRY_MODES = ['utme', 'de'];
@@ -292,7 +293,7 @@ export default function Apply() {
                   )}
                   {selectedIntake.application_fee_amount != null && (
                     <DetailRow label="Application fee">
-                      ₦{Number(selectedIntake.application_fee_amount).toLocaleString()}
+                      {formatNaira(selectedIntake.application_fee_amount)}
                     </DetailRow>
                   )}
                 </dl>
@@ -361,7 +362,7 @@ export default function Apply() {
             {app.application_fee_invoice && (
               <DetailRow label="Amount due">
                 <span className="text-base font-semibold text-sky-700 sm:text-lg">
-                  ₦{Number(app.application_fee_invoice.amount).toLocaleString()}
+                  {formatNaira(app.application_fee_invoice.amount)}
                 </span>
                 <span className="ml-2 text-xs font-normal capitalize text-slate-500">
                   · {app.application_fee_invoice.status}

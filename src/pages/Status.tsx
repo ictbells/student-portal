@@ -7,6 +7,7 @@ import { PassportPhoto } from '../components/PassportPhoto';
 import { useToast } from '../components/toast';
 import { formatStage, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Button, Card, Spinner } from '../components/ui';
+import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 function statusTone(stage?: string) {
@@ -228,7 +229,7 @@ export default function Status() {
             </p>
             {app?.acceptance_fee_invoice && (
               <p className="text-sm font-medium text-emerald-900 mt-2">
-                Acceptance fee: ₦{Number(app.acceptance_fee_invoice.amount).toLocaleString()}
+                Acceptance fee: {formatNaira(app.acceptance_fee_invoice.amount)}
                 {' · '}
                 <span className="capitalize">{app.acceptance_fee_invoice.status}</span>
               </p>
@@ -331,7 +332,7 @@ export default function Status() {
                   <div>
                     <dt className="text-slate-500">Application fee</dt>
                     <dd className="font-medium text-slate-900 mt-0.5">
-                      ₦{Number(app.application_fee_invoice.amount).toLocaleString()} · {app.application_fee_invoice.status}
+                      {formatNaira(app.application_fee_invoice.amount)} · {app.application_fee_invoice.status}
                     </dd>
                   </div>
                 )}
@@ -339,7 +340,7 @@ export default function Status() {
                   <div>
                     <dt className="text-slate-500">Acceptance fee</dt>
                     <dd className="font-medium text-slate-900 mt-0.5">
-                      ₦{Number(app.acceptance_fee_invoice.amount).toLocaleString()} · {app.acceptance_fee_invoice.status}
+                      {formatNaira(app.acceptance_fee_invoice.amount)} · {app.acceptance_fee_invoice.status}
                     </dd>
                   </div>
                 )}
