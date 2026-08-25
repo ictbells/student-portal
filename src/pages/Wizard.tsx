@@ -10,6 +10,7 @@ import { storageUrl } from '../lib/storage';
 import { requiredDocumentsFor } from '../constants/requiredDocuments';
 
 const OLEVEL_GRADES = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
+const OLEVEL_SUBJECT_CAP = 9;
 
 type OlevelResult = { subject_id: number; subject_name: string; grade: string };
 type OlevelSubject = { id: number; name: string; code?: string };
@@ -104,6 +105,21 @@ function emptyUtme(): UtmeForm {
       { subject: '', score: '' },
     ],
     institution_choices: emptyUtmeChoices(),
+  };
+}
+
+function catalogueProgramLabel(p: { name?: string; code?: string | null }) {
+  if (!p?.name) return '';
+  return p.code ? `${p.name} (${p.code})` : p.name;
+}
+
+function withDefaultFirstInstitution(utme: UtmeForm, universityName?: string): UtmeForm {
+  if (!universityName || utme.institution_choices[0]?.institution_name) return utme;
+  return {
+    ...utme,
+    institution_choices: utme.institution_choices.map((row, index) => (
+      index === 0 ? { ...row, institution_name: universityName } : row
+    )),
   };
 }
 
@@ -342,7 +358,7 @@ export default function Wizard() {
       stepPayload = normalizeAcademicPayload(stepPayload);
     }
     if (activeKey === 'utme') {
-      stepPayload = { utme: asUtme(stepPayload.utme, candidateUtme) };
+      stepPayload = { utme: withDefaultFirstInstitution(asUtme(stepPayload.utme, candidateUtme), auth?.university?.name) };
     }
     if (activeKey === 'application_form' && !stepPayload.phone && auth?.user?.phone) {
       stepPayload = { ...stepPayload, phone: auth.user.phone };
@@ -395,9 +411,9 @@ export default function Wizard() {
         || current?.subjects?.some((row: any) => row.subject || row.score)
         || current?.institution_choices?.some((row: any) => row.institution_name || row.programme_name);
       if (filled) return prev;
-      return { ...prev, utme: asUtme(null, candidateUtme) };
+      return { ...prev, utme: withDefaultFirstInstitution(asUtme(null, candidateUtme), auth?.university?.name) };
     });
-  }, [candidateUtme, idx]);
+  }, [candidateUtme, idx, auth?.university?.name]);
 
   useEffect(() => {
     api.get('/api/colleges')
@@ -470,7 +486,7 @@ export default function Wizard() {
     }
     if (steps[stepIndex].key === 'utme') {
       const academicUtme = appData.steps?.find((x: any) => x.step_key === 'academic_qualifications')?.payload?.utme;
-      nextPayload = { utme: asUtme(nextPayload.utme, academicUtme || candidateUtme) };
+      nextPayload = { utme: withDefaultFirstInstitution(asUtme(nextPayload.utme, academicUtme || candidateUtme), auth?.university?.name) };
     }
     if (steps[stepIndex].key === 'application_form' && !nextPayload.phone && auth?.user?.phone) {
       nextPayload = { ...nextPayload, phone: auth.user.phone };
@@ -734,11 +750,13 @@ export default function Wizard() {
   const addOlevelRow = (sitting: 'first_sitting' | 'second_sitting') => {
     setPayload((prev: any) => {
       const current = prev[sitting] || emptySitting();
+      const results = current.results || [];
+      if (results.length >= OLEVEL_SUBJECT_CAP) return prev;
       return {
         ...prev,
         [sitting]: {
           ...current,
-          results: [...(current.results || []), { subject_id: 0, subject_name: '', grade: '' }],
+          results: [...results, { subject_id: 0, subject_name: '', grade: '' }],
         },
       };
     });
@@ -864,7 +882,9 @@ export default function Wizard() {
           </div>
         ))}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => addOlevelRow(key)} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">Add subject</Button>
+          {(sitting.results || []).length < OLEVEL_SUBJECT_CAP && (
+            <Button type="button" onClick={() => addOlevelRow(key)} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">Add subject</Button>
+          )}
           {optional && (
             <Button type="button" onClick={clearSecondSitting} className="text-slate-600 hover:bg-slate-50">Clear second sitting</Button>
           )}
@@ -1274,12 +1294,20 @@ export default function Wizard() {
                 </div>
                 <div className="sm:col-span-2">
                   <Label htmlFor="utme_course_choice">Programme choice (JAMB)</Label>
-                  <Input
+                  <select
                     id="utme_course_choice"
+                    className={selectClass}
                     value={payload.utme?.course_choice || ''}
                     onChange={(e) => updateUtme('course_choice', e.target.value)}
-                    placeholder="Programme chosen in JAMB"
-                  />
+                  >
+                    <option value="">Select programme</option>
+                    {programs.map((p) => (
+                      <option key={p.id} value={p.name}>{catalogueProgramLabel(p)}</option>
+                    ))}
+                    {payload.utme?.course_choice && !programs.some((p) => p.name === payload.utme.course_choice) && (
+                      <option value={payload.utme.course_choice}>{payload.utme.course_choice}</option>
+                    )}
+                  </select>
                 </div>
               </div>
               <div className="space-y-2">
@@ -1333,11 +1361,19 @@ export default function Wizard() {
                     <div>
                       {index === 0 && <Label>Programme</Label>}
                       {index > 0 && <span className="sr-only">Programme</span>}
-                      <Input
+                      <select
+                        className={selectClass}
                         value={row.programme_name}
                         onChange={(e) => updateUtmeChoice(index, 'programme_name', e.target.value)}
-                        placeholder="Programme at this institution"
-                      />
+                      >
+                        <option value="">Select programme</option>
+                        {programs.map((p) => (
+                          <option key={p.id} value={p.name}>{catalogueProgramLabel(p)}</option>
+                        ))}
+                        {row.programme_name && !programs.some((p) => p.name === row.programme_name) && (
+                          <option value={row.programme_name}>{row.programme_name}</option>
+                        )}
+                      </select>
                     </div>
                   </div>
                 ))}

@@ -14,6 +14,7 @@ import { WalletPage, Invoices, Documents, Academic } from './pages/Modules';
 import Clinic from './pages/Clinic';
 import Hostel from './pages/Hostel';
 import Profile from './pages/Profile';
+import CourseRegistration from './pages/CourseRegistration';
 import Announcements from './pages/Announcements';
 import Notifications from './pages/Notifications';
 import Referee from './pages/Referee';
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="clinic" element={<Clinic />} />
         <Route path="hostel" element={<Hostel />} />
         <Route path="academic" element={<Academic />} />
+        <Route path="course-registration" element={<CourseRegistration />} />
         <Route path="documents" element={<Documents />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="notifications" element={<Notifications />} />

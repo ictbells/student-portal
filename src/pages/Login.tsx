@@ -54,7 +54,7 @@ export default function Login() {
       
       <form onSubmit={submit} className={`space-y-5${applicationsOpen === false ? ' mt-5' : ''}`}>
         <div>
-          <Label htmlFor="login">Sign-in ID</Label>
+          <Label htmlFor="login">Jamb/Matric/Application Number</Label>
           <Input
             id="login"
             value={login}
@@ -67,11 +67,7 @@ export default function Login() {
             spellCheck={false}
             inputMode="text"
           />
-          <ul className="mt-3 space-y-1.5 rounded-xl border border-[#eee8dc] bg-parchment/80 px-3.5 py-3 text-xs text-slate-500">
-            <li><span className="font-medium text-brand">UTME</span> — JAMB registration number</li>
-            <li><span className="font-medium text-brand">Matriculated</span> — matric number</li>
-            <li><span className="font-medium text-brand">Other applicants</span> — application number</li>
-          </ul>
+          
         </div>
         <div>
           <div className="mb-1.5 flex items-center justify-between">

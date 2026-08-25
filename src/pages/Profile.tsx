@@ -104,7 +104,7 @@ function Section({
 function paymentTone(status: string): 'success' | 'warning' | 'neutral' {
   const value = status.toLowerCase();
   if (value === 'paid' || value === 'registered' || value === 'open') return 'success';
-  if (value === 'pending' || value === 'partial' || value === 'late' || value === 'closed' || value === 'in progress') return 'warning';
+  if (value === 'pending' || value === 'partial' || value === 'part' || value === 'late' || value === 'closed' || value === 'in progress') return 'warning';
   return 'neutral';
 }
 
@@ -147,7 +147,7 @@ export default function Profile() {
   const tuitionStatus = (() => {
     if (Number.isFinite(tuitionPercent)) {
       if (tuitionPercent >= 100) return 'Paid';
-      if (tuitionPercent > 0) return 'Partial';
+      if (tuitionPercent > 0) return 'Part';
       return 'Pending';
     }
     // Fallback when registration payload is unavailable: compare receipts to full fee.
@@ -166,7 +166,7 @@ export default function Profile() {
       }
     }
     if (billed > 0 && paid >= billed - 0.009) return 'Paid';
-    if (paid > 0.009) return 'Partial';
+    if (paid > 0.009) return 'Part';
     return 'Pending';
   })();
 
@@ -269,8 +269,8 @@ export default function Profile() {
           title="Academic info"
           description="Current semester information"
           action={
-            <Link to="/academic" className="text-sm font-medium text-sky-600 hover:text-sky-700 shrink-0">
-              Courses & results
+            <Link to="/course-registration" className="text-sm font-medium text-sky-600 hover:text-sky-700 shrink-0">
+              Course registration
             </Link>
           }
         >

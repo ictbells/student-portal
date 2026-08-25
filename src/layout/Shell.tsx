@@ -65,6 +65,7 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
     { to: '/clinic', label: 'Clinic', icon: 'clinic', show: !!auth?.is_student },
     { to: '/hostel', label: 'Hostel', icon: 'hostel', show: !!auth?.is_student },
     { to: '/academic', label: 'Academic', icon: 'academic', show: !!auth?.is_student },
+    { to: '/course-registration', label: 'Course registration', icon: 'academic', show: !!auth?.is_student },
     { to: '/documents', label: 'Documents', icon: 'documents', show: true },
     { to: '/announcements', label: 'Announcements', icon: 'announcements', show: true },
   ];
@@ -82,6 +83,7 @@ const pageTitles: Record<string, string> = {
   '/clinic': 'Clinic',
   '/hostel': 'Hostel',
   '/academic': 'Academic',
+  '/course-registration': 'Course registration',
   '/documents': 'Documents',
   '/announcements': 'Announcements',
   '/notifications': 'Notifications',

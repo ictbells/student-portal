@@ -306,7 +306,7 @@ export default function Status() {
                 </div>
                 {journeyComplete && (
                   <span className="inline-flex self-start rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-                    With admissions
+                    Pending
                   </span>
                 )}
               </div>

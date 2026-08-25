@@ -14,30 +14,52 @@ type Stat = {
   value: string;
   hint?: string;
   tone?: 'default' | 'success' | 'warning' | 'info';
+  to?: string;
 };
 
-function StatCard({ label, value, hint, tone = 'default' }: Stat) {
+function StatCard({ label, value, hint, tone = 'default', to }: Stat & { to?: string }) {
   const tones = {
     default: 'border-slate-200/80 bg-white hover:border-slate-300',
     success: 'border-emerald-100 bg-emerald-50/70 hover:border-emerald-200',
     warning: 'border-amber-100 bg-amber-50/70 hover:border-amber-200',
     info: 'border-sky-100 bg-sky-50/70 hover:border-sky-200',
   };
-  return (
-    <div className={`rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+  const body = (
+    <>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
       <p className="mt-2 text-xl font-semibold text-slate-900 break-words leading-tight">{value}</p>
       {hint && <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{hint}</p>}
+    </>
+  );
+  if (to) {
+    return (
+      <Link to={to} className={`block rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+      {body}
     </div>
   );
 }
 
 const STUDENT_QUICK_LINKS = [
-  { to: '/wallet', label: 'Wallet', desc: 'Top up & pay' },
-  { to: '/academic', label: 'Academic', desc: 'Courses & results' },
-  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts' },
-  { to: '/clinic', label: 'Clinic', desc: 'Health records' },
-  { to: '/hostel', label: 'Hostel', desc: 'Room & bed' },
+  { to: '/course-registration', label: 'Course registration', desc: 'Add & drop courses', area: 'Registration' as const },
+  { to: '/wallet', label: 'Wallet', desc: 'Top up & pay', area: 'Registration' as const },
+  { to: '/academic', label: 'Academic', desc: 'Results & clearance', area: 'Registration' as const },
+  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Registration' as const },
+  { to: '/clinic', label: 'Clinic', desc: 'Health records', area: 'Registration' as const },
+  { to: '/hostel', label: 'Hostel', desc: 'Room & bed', area: 'Registration' as const },
+];
+
+const APPLICATION_QUICK_LINKS = [
+  { to: '/apply', label: 'Apply', desc: 'Fee & start application', area: 'Application' as const },
+  { to: '/wizard', label: 'Application form', desc: 'Complete your form', area: 'Application' as const },
+  { to: '/status', label: 'Status', desc: 'Track your application', area: 'Application' as const },
+  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Application' as const },
+  { to: '/documents', label: 'Documents', desc: 'Uploads & letters', area: 'Application' as const },
 ];
 
 function formProgress(app: any): { done: number; total: number } {
@@ -99,7 +121,7 @@ export default function Home() {
   } else if (hasPendingAdmissionOffer(auth)) {
     cta = { to: '/status', label: 'Accept admission' };
   } else if (isStudent) {
-    cta = { to: '/profile', label: 'View my record' };
+    cta = { to: '/course-registration', label: 'Register courses' };
   } else if (auth?.lifecycle_stage && !['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'].includes(auth.lifecycle_stage)) {
     cta = { to: '/status', label: 'View application status' };
   }
@@ -186,8 +208,9 @@ export default function Home() {
       {
         label: 'Course registrations',
         value: String(enrollments.length),
-        hint: enrollments.length ? 'Current academic enrollments' : 'Register courses when the window opens',
+        hint: enrollments.length ? 'Current academic enrollments' : 'Open course registration to add courses',
         tone: enrollments.length ? 'success' : 'default',
+        to: '/course-registration',
       },
       {
         label: 'CGPA',
@@ -290,23 +313,22 @@ export default function Home() {
         </Card>
       )}
 
-      {isStudent && (
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {STUDENT_QUICK_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
-              >
-                <p className="text-sm font-semibold text-slate-900 group-hover:text-sky-700 transition">{link.label}</p>
-                <p className="text-xs text-slate-500 mt-1">{link.desc}</p>
-              </Link>
-            ))}
-          </div>
+      <div>
+        <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {(isStudent ? STUDENT_QUICK_LINKS : APPLICATION_QUICK_LINKS).map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{link.area}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900 group-hover:text-sky-700 transition">{link.label}</p>
+              <p className="text-xs text-slate-500 mt-1">{link.desc}</p>
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
 
       {notices.length > 0 && (
         <div>

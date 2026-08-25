@@ -14,6 +14,8 @@ type IdentityPreview = {
   last_name: string;
   date_of_birth?: string;
   gender?: string;
+  phone?: string;
+  address?: string;
   live?: boolean;
 };
 
@@ -139,6 +141,9 @@ export default function Signup() {
         intake_id: selectedIntake.id,
       });
       setIdentity(data);
+      if (data.phone) {
+        setPhone(data.phone);
+      }
       setStep('register');
       toast.success(data.live === false
         ? 'NIN accepted in demo mode — this was not a live Prembly check.'
