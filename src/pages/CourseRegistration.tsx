@@ -13,13 +13,6 @@ const COURSE_BUCKETS = [
   { value: 'departmental', label: 'Departmental' },
 ];
 
-function groupByBucket<T extends { bucket?: string; course?: { course_type?: string }; offering?: { course?: { course_type?: string } } }>(rows: T[]) {
-  return COURSE_BUCKETS.map((bucket) => ({
-    ...bucket,
-    rows: rows.filter((row) => (row.bucket || row.course?.course_type || row.offering?.course?.course_type || 'departmental') === bucket.value),
-  }));
-}
-
 function courseStatusLabel(value?: string) {
   if (value === 'elective') return 'Elective';
   if (value === 'required') return 'Required';
@@ -38,11 +31,6 @@ function courseProgrammePrefix(course?: { programs?: { name?: string; code?: str
   return `(${text}) `;
 }
 
-function courseHeading(course?: { code?: string; title?: string; programs?: { name?: string; code?: string | null }[] } | null) {
-  if (!course) return '';
-  return `${course.code || ''} ${courseProgrammePrefix(course)}${course.title || ''}`.trim();
-}
-
 function defaultSelectedIds(rows: any[]) {
   return rows.filter(isDefaultSelected).map((row: any) => row.id);
 }
@@ -59,8 +47,10 @@ function courseUnits(row: any) {
   return Number(row?.course?.units || row?.offering?.course?.units || 0);
 }
 
-function courseBucket(row: any) {
-  return row?.bucket || row?.course?.course_type || row?.offering?.course?.course_type || 'departmental';
+function courseBucket(row: any): 'general' | 'faculty' | 'departmental' {
+  const value = row?.bucket || row?.course?.course_type || row?.offering?.course?.course_type || 'departmental';
+  if (value === 'general' || value === 'faculty') return value;
+  return 'departmental';
 }
 
 function addSelectionUnits(base: Record<string, number>, rows: any[]) {
@@ -93,6 +83,16 @@ function apiErrorMessage(e: any, fallback: string) {
   return data?.message || fallback;
 }
 
+function bucketLabel(value?: string) {
+  if (value === 'general') return 'General';
+  if (value === 'faculty') return 'Faculty';
+  return 'Departmental';
+}
+
+const thClass = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap bg-slate-50';
+const tdClass = 'px-3 py-2 text-sm text-slate-800 align-middle';
+const trClass = 'border-t border-slate-100';
+
 function windowBadgeStatus(windowStatus: string) {
   if (windowStatus === 'Open') return 'paid';
   if (windowStatus === 'Late') return 'partial';
@@ -124,6 +124,8 @@ export default function CourseRegistration() {
   const [units, setUnits] = useState('15');
   const [reason, setReason] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printHtml, setPrintHtml] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -140,6 +142,15 @@ export default function CourseRegistration() {
     if (!auth?.is_student) return;
     load();
   }, [auth?.is_student]);
+
+  useEffect(() => {
+    if (!printHtml) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPrintHtml(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [printHtml]);
 
   if (!auth?.is_student) return <Navigate to="/" replace />;
 
@@ -202,6 +213,35 @@ export default function CourseRegistration() {
     ));
   };
 
+  const openPrint = async () => {
+    setPrintLoading(true);
+    try {
+      const { data } = await api.get('/api/academic/my-registration/print', { responseType: 'text' });
+      setPrintHtml(data);
+    } catch (e: any) {
+      toast.error(apiErrorMessage(e, 'Could not open the course registration printout.'));
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const printCurrent = () => {
+    const frame = document.getElementById('registration-print-frame') as HTMLIFrameElement | null;
+    frame?.contentWindow?.focus();
+    frame?.contentWindow?.print();
+  };
+
+  const downloadCurrent = () => {
+    if (!printHtml) return;
+    const blob = new Blob([printHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'course-registration.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const windowStatus = reg?.window || 'Closed';
   const extension = reg?.extension;
   const paidExtension = extension?.status === 'paid';
@@ -211,8 +251,6 @@ export default function CourseRegistration() {
     : null;
   const enrollments = [...(reg?.enrollments || [])].sort((a: any, b: any) => Number(!!b.is_carry_over) - Number(!!a.is_carry_over));
   const available = reg?.available || [];
-  const availableGroups = groupByBucket(available);
-  const enrolledGroups = groupByBucket(enrollments);
   const termLabel = reg?.term?.name ? `${reg.term.session_label || ''} ${reg.term.name}`.trim() : 'Current semester';
   const selectedRows = available.filter((row: any) => selectedIds.includes(row.id));
   const projectedUnits = addSelectionUnits(reg?.units || {}, selectedRows);
@@ -224,17 +262,31 @@ export default function CourseRegistration() {
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Course registration' }]} />
         <PageHeader
           title="Course registration"
-          description="Tick the courses you will take this semester, check your unit totals, then submit once."
-          action={canMutate && available.length > 0 ? (
-            <Button
-              type="button"
-              disabled={submitting || selectedIds.length === 0 || busyId !== null}
-              className="bg-sky-600 hover:bg-sky-700 text-white"
-              onClick={registerSelected}
-            >
-              {submitting ? 'Registering…' : `Register ${selectedIds.length} course${selectedIds.length === 1 ? '' : 's'}`}
-            </Button>
-          ) : undefined}
+          description="Tick the courses you will take this semester, check your unit totals, then submit once. Print a copy of your registered courses when you are done."
+          action={(
+            <div className="flex flex-wrap gap-2">
+              {enrollments.length > 0 && (
+                <Button
+                  type="button"
+                  disabled={printLoading || busyId !== null}
+                  className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  onClick={openPrint}
+                >
+                  {printLoading ? 'Preparing…' : 'Print registered courses'}
+                </Button>
+              )}
+              {canMutate && available.length > 0 ? (
+                <Button
+                  type="button"
+                  disabled={submitting || selectedIds.length === 0 || busyId !== null}
+                  className="bg-sky-600 hover:bg-sky-700 text-white"
+                  onClick={registerSelected}
+                >
+                  {submitting ? 'Registering…' : `Register ${selectedIds.length} course${selectedIds.length === 1 ? '' : 's'}`}
+                </Button>
+              ) : null}
+            </div>
+          )}
         />
       </div>
 
@@ -308,54 +360,79 @@ export default function CourseRegistration() {
             </div>
 
             {(reg.carry_overs || []).length > 0 && (
-              <div>
-                <h3 className="font-medium text-slate-800 mb-1">Required carry-overs</h3>
-                <ul className="divide-y divide-slate-100">
-                  {reg.carry_overs.map((row: any) => (
-                    <li key={row.id} className="py-2 flex justify-between gap-3">
-                      <span>{courseHeading(row.offering?.course)} ({row.offering?.course?.units} units)</span>
-                      <span className="text-xs font-medium text-amber-700">Cannot drop</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <Alert tone="warning">Carry-over courses are already on your registered list and cannot be dropped.</Alert>
             )}
 
             <div>
-              <h3 className="font-medium text-slate-800 mb-1">Registered</h3>
-              {enrollments.length === 0 && <p className="text-slate-500">No courses registered this semester.</p>}
-              {enrolledGroups.map((group) => group.rows.length > 0 && (
-                <div key={group.value} className="mb-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{group.label}</p>
-                  <ul className="divide-y divide-slate-100">
-                    {group.rows.map((row: any) => {
+              <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
+                <h3 className="font-medium text-slate-800">Registered courses</h3>
+                {enrollments.length > 0 && (
+                  <Button
+                    type="button"
+                    disabled={printLoading || busyId !== null}
+                    className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={openPrint}
+                  >
+                    {printLoading ? 'Preparing…' : 'Print'}
+                  </Button>
+                )}
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className={thClass}>Code</th>
+                      <th className={thClass}>Title</th>
+                      <th className={thClass}>Type</th>
+                      <th className={thClass}>Status</th>
+                      <th className={`${thClass} text-center`}>Units</th>
+                      <th className={thClass}>Note</th>
+                      {canMutate && <th className={`${thClass} text-right`}>Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enrollments.length === 0 ? (
+                      <tr className={trClass}>
+                        <td className={`${tdClass} text-slate-500`} colSpan={canMutate ? 7 : 6}>
+                          No courses registered this semester.
+                        </td>
+                      </tr>
+                    ) : enrollments.map((row: any) => {
                       const dropBlocked = !canMutate || row.is_carry_over;
+                      const course = row.offering?.course;
                       return (
-                        <li key={row.id} className="py-2 flex justify-between gap-3 items-center">
-                          <span>
-                            {courseHeading(row.offering?.course)} ({row.offering?.course?.units} units)
-                            {row.offering?.course?.status ? ` · ${courseStatusLabel(row.offering.course.status)}` : ''}
-                            {row.is_carry_over ? ' · carry-over' : ''}
-                          </span>
-                          <Button
-                            type="button"
-                            disabled={dropBlocked || busyId !== null}
-                            title={row.is_carry_over ? 'Carry-over courses cannot be dropped.' : (blockReason || undefined)}
-                            className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                            onClick={() => drop(row.id)}
-                          >
-                            {busyId === `drop-${row.id}` ? 'Dropping…' : 'Drop'}
-                          </Button>
-                        </li>
+                        <tr key={row.id} className={trClass}>
+                          <td className={`${tdClass} font-medium whitespace-nowrap`}>{course?.code || '—'}</td>
+                          <td className={tdClass}>{courseProgrammePrefix(course)}{course?.title || '—'}</td>
+                          <td className={`${tdClass} whitespace-nowrap`}>{bucketLabel(courseBucket(row))}</td>
+                          <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(course?.status) || '—'}</td>
+                          <td className={`${tdClass} text-center`}>{course?.units ?? 0}</td>
+                          <td className={tdClass}>
+                            {row.is_carry_over ? <span className="text-xs font-medium text-amber-700">Carry-over · cannot drop</span> : '—'}
+                          </td>
+                          {canMutate && (
+                            <td className={`${tdClass} text-right`}>
+                              <Button
+                                type="button"
+                                disabled={dropBlocked || busyId !== null}
+                                title={row.is_carry_over ? 'Carry-over courses cannot be dropped.' : (blockReason || undefined)}
+                                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                                onClick={() => drop(row.id)}
+                              >
+                                {busyId === `drop-${row.id}` ? 'Dropping…' : 'Drop'}
+                              </Button>
+                            </td>
+                          )}
+                        </tr>
                       );
                     })}
-                  </ul>
-                </div>
-              ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div>
-              <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+              <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
                 <h3 className="font-medium text-slate-800">Available courses</h3>
                 <p className="text-xs text-slate-500">{selectedIds.length} selected</p>
               </div>
@@ -365,41 +442,59 @@ export default function CourseRegistration() {
               {blockReason && (
                 <p className="text-xs text-amber-800 mb-2">{blockReason} Register stays disabled until this is resolved.</p>
               )}
-              {availableGroups.every((group) => group.rows.length === 0) && (
-                <p className="text-slate-500">No offerings are available for you this semester.</p>
-              )}
-              {availableGroups.map((group) => group.rows.length > 0 && (
-                <div key={group.value} className="mb-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{group.label}</p>
-                  <ul className="divide-y divide-slate-100">
-                    {group.rows.map((row: any) => {
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      {canMutate && <th className={`${thClass} w-10`}><span className="sr-only">Select</span></th>}
+                      <th className={thClass}>Code</th>
+                      <th className={thClass}>Title</th>
+                      <th className={thClass}>Type</th>
+                      <th className={thClass}>Status</th>
+                      <th className={`${thClass} text-center`}>Units</th>
+                      <th className={thClass}>Seats</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {available.length === 0 ? (
+                      <tr className={trClass}>
+                        <td className={`${tdClass} text-slate-500`} colSpan={canMutate ? 7 : 6}>
+                          No offerings are available for you this semester.
+                        </td>
+                      </tr>
+                    ) : available.map((row: any) => {
                       const checked = selectedIds.includes(row.id);
                       const locked = isRequiredRow(row);
-                      const seats = row.unlimited || row.capacity == null ? 'Unlimited seats' : `${row.seats_left} seats`;
+                      const seats = row.unlimited || row.capacity == null ? 'Unlimited' : `${row.seats_left} left`;
                       return (
-                        <li key={row.id} className="py-2">
-                          <label className={`flex items-start gap-3 ${canMutate ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                              checked={checked}
-                              disabled={!canMutate || busyId !== null || locked}
-                              onChange={() => toggleCourse(row)}
-                            />
-                            <span>
-                              <span className="font-medium text-slate-900">{courseHeading(row.course)}</span>
-                              <span className="text-slate-600"> ({row.course?.units} units)</span>
-                              {row.course?.status ? ` · ${courseStatusLabel(row.course.status)}` : ''}
-                              {locked ? ' · must register' : ''}
-                              {' · '}{seats}
-                            </span>
-                          </label>
-                        </li>
+                        <tr key={row.id} className={trClass}>
+                          {canMutate && (
+                            <td className={tdClass}>
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${row.course?.code || 'course'}`}
+                                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                checked={checked}
+                                disabled={busyId !== null || locked}
+                                onChange={() => toggleCourse(row)}
+                              />
+                            </td>
+                          )}
+                          <td className={`${tdClass} font-medium whitespace-nowrap`}>{row.course?.code || '—'}</td>
+                          <td className={tdClass}>
+                            {courseProgrammePrefix(row.course)}{row.course?.title || '—'}
+                            {locked ? <span className="block text-[11px] text-slate-500">Must register</span> : null}
+                          </td>
+                          <td className={`${tdClass} whitespace-nowrap`}>{bucketLabel(courseBucket(row))}</td>
+                          <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(row.course?.status) || '—'}</td>
+                          <td className={`${tdClass} text-center`}>{row.course?.units ?? 0}</td>
+                          <td className={`${tdClass} whitespace-nowrap`}>{seats}</td>
+                        </tr>
                       );
                     })}
-                  </ul>
-                </div>
-              ))}
+                  </tbody>
+                </table>
+              </div>
               {canMutate && available.length > 0 && (
                 <div className="flex justify-end pt-2">
                   <Button
@@ -444,6 +539,57 @@ export default function CourseRegistration() {
             )}
           </div>
         </Card>
+      )}
+
+      {(printLoading || printHtml) && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          onClick={() => !printLoading && setPrintHtml(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Course registration printout"
+        >
+          <div
+            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Document</p>
+                <h3 className="font-semibold text-slate-900 truncate">Course registration</h3>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {printHtml && (
+                  <>
+                    <button type="button" onClick={printCurrent} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      Print
+                    </button>
+                    <button type="button" onClick={downloadCurrent} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      Download
+                    </button>
+                  </>
+                )}
+                <button type="button" onClick={() => setPrintHtml(null)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-100">
+              {printLoading || !printHtml ? (
+                <div className="flex items-center justify-center py-24 text-slate-500">
+                  <Spinner label="Loading document…" />
+                </div>
+              ) : (
+                <iframe
+                  id="registration-print-frame"
+                  title="Course registration"
+                  srcDoc={printHtml}
+                  className="w-full h-[min(70vh,720px)] border-0 bg-white"
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
