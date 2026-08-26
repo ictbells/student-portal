@@ -486,12 +486,16 @@ export default function Hostel() {
                         const bunkHint = room.uses_bunks
                           ? (room.available_bunk_summary?.text || `${room.available_beds || 0} free`)
                           : null;
+                        const typeLabel = room.room_type_label || titleCase(room.room_type || 'standard');
+                        const freeHint = occupied
+                          ? (room.disabled_reason || 'Occupied')
+                          : [typeLabel, bunkHint].filter(Boolean).join(' · ');
                         return (
                           <button
                             key={room.id}
                             type="button"
                             disabled={occupied}
-                            title={occupied ? (room.disabled_reason || 'Occupied') : (bunkHint ? `Room ${code} · ${bunkHint}` : `Room ${code}`)}
+                            title={occupied ? (room.disabled_reason || 'Occupied') : `Room ${code} · ${freeHint}`}
                             onClick={() => {
                               if (occupied) return;
                               setSelectedRoomId(room.id);
@@ -506,11 +510,10 @@ export default function Hostel() {
                             }`}
                           >
                             <span className="block">{code}</span>
-                            {room.uses_bunks && !occupied && (
-                              <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-slate-500">
-                                Bunk · {room.available_beds ?? 0} free
-                              </span>
-                            )}
+                            <span className={`block mt-0.5 text-[10px] font-medium normal-case tracking-normal ${occupied ? 'text-slate-400' : 'text-slate-500'}`}>
+                              {typeLabel}
+                              {room.uses_bunks && !occupied ? ` · ${room.available_beds ?? 0} free` : ''}
+                            </span>
                           </button>
                         );
                       })}
@@ -523,6 +526,9 @@ export default function Hostel() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
                     4. {selectedRoom.uses_bunks ? 'Bunk' : 'Bed'} in {selectedRoom.code || selectedRoom.number}
+                    {selectedRoom.room_type_label || selectedRoom.room_type
+                      ? ` · ${selectedRoom.room_type_label || titleCase(selectedRoom.room_type)}`
+                      : ''}
                   </p>
                   {selectedRoom.uses_bunks && selectedRoom.available_bunk_summary?.text && (
                     <p className="text-xs text-slate-600 mb-2">{selectedRoom.available_bunk_summary.text}</p>

@@ -242,6 +242,13 @@ export default function Clinic() {
   const invoices = data?.invoices || [];
   const sickNotes = data?.sick_notes || [];
   const coverage = Number(data?.effective_coverage_percent ?? data?.settings?.nhis_default_coverage_percent ?? 0);
+  const coverageAmount = data?.effective_coverage_amount;
+  const coverageMode = data?.coverage_mode || (coverageAmount != null ? 'amount' : 'percent');
+  const coverageText = !nhis
+    ? 'Clinic charges are billed in full to your campus wallet.'
+    : coverageMode === 'amount'
+      ? `NHIS covers ${formatNaira(coverageAmount)} of eligible clinic charges.`
+      : `NHIS covers ${coverage}% of eligible clinic charges.`;
   const outstanding = invoices
     .filter((inv: any) => ['unpaid', 'partial'].includes(String(inv.status || '')))
     .reduce((sum: number, inv: any) => sum + Number(inv.balance ?? inv.amount ?? 0), 0);
@@ -295,9 +302,7 @@ export default function Clinic() {
               </div>
               <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Campus clinic</h2>
               <p className="mt-1.5 text-sm text-slate-200">
-                {nhis
-                  ? `NHIS covers ${coverage}% of eligible clinic charges.`
-                  : 'Clinic charges are billed in full to your campus wallet.'}
+                {coverageText}
               </p>
               {latestVisit && (
                 <p className="mt-2 text-xs text-teal-100/90">
@@ -379,9 +384,13 @@ export default function Clinic() {
             <div className="space-y-3">
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Coverage</p>
-                <p className="mt-1 text-3xl font-semibold text-emerald-800">{coverage}%</p>
+                <p className="mt-1 text-3xl font-semibold text-emerald-800">
+                  {coverageMode === 'amount' ? formatNaira(coverageAmount) : `${coverage}%`}
+                </p>
                 <p className="mt-1 text-sm text-emerald-800/80">
-                  {profile.nhis_coverage_percent == null ? 'Campus default rate' : 'Personal coverage override'}
+                  {coverageMode === 'amount'
+                    ? 'Fixed cover on eligible charges'
+                    : profile.nhis_coverage_percent == null ? 'Campus default rate' : 'Personal coverage override'}
                 </p>
               </div>
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -483,7 +492,7 @@ export default function Clinic() {
 
       <Section
         title="Clinic invoices"
-        description="Medical charges billed to your campus wallet."
+        description="Clinic service charges billed to your campus wallet. Pay from the student invoices page."
         action={
           <Link to="/invoices" className="text-sm font-medium text-sky-600 hover:text-sky-700 shrink-0">
             Transaction history
@@ -491,7 +500,7 @@ export default function Clinic() {
         }
       >
         {invoices.length === 0 ? (
-          <EmptyState message="No medical invoices." />
+          <EmptyState message="No clinic invoices." />
         ) : (
           <ul className="divide-y divide-slate-100">
             {invoices.map((inv: any) => (
