@@ -10,7 +10,7 @@ import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
-const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee'];
+const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee', 'transcript'];
 
 function isOnlineFee(category?: string) {
   return ONLINE_FEE_CATEGORIES.includes(String(category || ''));
@@ -1225,9 +1225,13 @@ export function Documents() {
 
 export function Academic() {
   const { auth } = useAuth();
+  const toast = useToast();
   const [rows, setRows] = useState<any[]>([]);
   const [tr, setTr] = useState<any>(null);
   const [clearance, setClearance] = useState<any>(null);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printHtml, setPrintHtml] = useState('');
+  const [printLoading, setPrintLoading] = useState(false);
 
   useEffect(() => {
     if (!auth?.is_student) return;
@@ -1235,13 +1239,38 @@ export function Academic() {
     api.get('/api/academic/transcript').then((r) => setTr(r.data)).catch(() => {});
     api.get('/api/exam-clearance').then((r) => setClearance(r.data)).catch(() => setClearance(null));
   }, [auth?.is_student]);
+
+  const openUnofficialTranscript = async () => {
+    setPrintLoading(true);
+    setPrintOpen(true);
+    try {
+      const { data } = await api.get('/api/academic/transcript', {
+        params: { format: 'html' },
+        responseType: 'text',
+        headers: { Accept: 'text/html' },
+      });
+      setPrintHtml(typeof data === 'string' ? data : String(data));
+    } catch {
+      toast.error('Could not open unofficial transcript.');
+      setPrintOpen(false);
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const printCurrent = () => {
+    const frame = document.getElementById('unofficial-transcript-frame') as HTMLIFrameElement | null;
+    frame?.contentWindow?.focus();
+    frame?.contentWindow?.print();
+  };
+
   if (!auth?.is_student) return <Navigate to="/" replace />;
 
   return (
     <div className="space-y-6">
       <div>
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Academic' }]} />
-        <PageHeader title="Academic" description="Exam clearance and academic standing." />
+        <PageHeader title="Academic" description="Exam clearance, course standing, and your unofficial transcript." />
       </div>
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1282,6 +1311,28 @@ export function Academic() {
         </Card>
       )}
       <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div>
+            <h2 className="font-semibold text-slate-900">Transcript</h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Released results only. You can view an unofficial copy — it is not signed and is not for official use.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={openUnofficialTranscript}
+            className="bg-sky-600 text-white hover:bg-sky-700"
+          >
+            View unofficial transcript
+          </Button>
+        </div>
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-3 text-sm text-amber-900">
+          {tr?.notice || 'Unofficial transcript for viewing only. Official signed copies are issued by the Registry.'}
+          {' '}
+          <Link to="/transcript-request" className="font-medium text-amber-950 underline underline-offset-2">
+            Request an official transcript
+          </Link>
+        </div>
         {tr && (
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
@@ -1299,7 +1350,6 @@ export function Academic() {
             )}
           </div>
         )}
-        <h2 className="font-semibold text-slate-900 mb-2">Transcript</h2>
         {(rows || []).length === 0 && <p className="text-sm text-slate-500">No course registrations yet.</p>}
         <ul className="divide-y divide-slate-100 text-sm">
           {rows.map((e) => (
@@ -1333,6 +1383,49 @@ export function Academic() {
           </div>
         )}
       </Card>
+
+      {printOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={() => setPrintOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-700">Unofficial</p>
+                <h3 className="font-semibold text-slate-900 truncate">Academic transcript (not signed)</h3>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {!printLoading && printHtml && (
+                  <button type="button" onClick={printCurrent} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    Print
+                  </button>
+                )}
+                <button type="button" onClick={() => setPrintOpen(false)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-100">
+              {printLoading || !printHtml ? (
+                <div className="flex items-center justify-center py-24 text-slate-500">
+                  <Spinner label="Loading transcript…" />
+                </div>
+              ) : (
+                <iframe
+                  id="unofficial-transcript-frame"
+                  title="Unofficial transcript"
+                  srcDoc={printHtml}
+                  className="w-full h-[min(70vh,720px)] border-0 bg-white"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

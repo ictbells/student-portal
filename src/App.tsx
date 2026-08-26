@@ -19,6 +19,8 @@ import Announcements from './pages/Announcements';
 import Notifications from './pages/Notifications';
 import Referee from './pages/Referee';
 import NotFound from './pages/NotFound';
+import TranscriptRequestPage from './pages/TranscriptRequest';
+import TranscriptRequestCallback from './pages/TranscriptRequestCallback';
 
 function Guard({ children }: { children: React.ReactNode }) {
   const { auth, loading } = useAuth();
@@ -44,6 +46,8 @@ export default function App() {
       <Route path="/reset-password" element={<Reset />} />
       <Route path="/referee/:token" element={<Referee />} />
       <Route path="/payments/callback" element={<PaymentCallback />} />
+      <Route path="/transcript-request" element={<TranscriptRequestPage />} />
+      <Route path="/transcript-request/callback" element={<TranscriptRequestCallback />} />
       <Route path="/" element={<Guard><Shell /></Guard>}>
         <Route index element={<Home />} />
         <Route path="apply" element={<Apply />} />
