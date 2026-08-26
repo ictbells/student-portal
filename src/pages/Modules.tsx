@@ -1051,7 +1051,7 @@ export function Documents() {
                 {printLoading ? <Spinner label="Opening…" /> : 'View admission letter'}
               </Button>
             )}
-            {app?.acceptance_fee_invoice?.id && app.acceptance_fee_invoice.status !== 'paid' && (
+            {app?.acceptance_fee_invoice?.id && ['unpaid', 'partial'].includes(app.acceptance_fee_invoice.status) && (
               <Button
                 onClick={() => payAcceptance(app.acceptance_fee_invoice.id)}
                 disabled={payingAcceptance}

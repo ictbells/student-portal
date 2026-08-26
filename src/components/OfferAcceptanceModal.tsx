@@ -71,7 +71,7 @@ export default function OfferAcceptanceModal() {
 
   const pay = async () => {
     const invoiceId = app?.acceptance_fee_invoice?.id;
-    if (!invoiceId || app.acceptance_fee_invoice.status === 'paid') {
+    if (!invoiceId || !['unpaid', 'partial'].includes(app.acceptance_fee_invoice.status)) {
       toast.error('Acceptance fee invoice is not ready yet. Contact admissions if this persists.');
       return;
     }
@@ -104,7 +104,7 @@ export default function OfferAcceptanceModal() {
   const programme = app?.program?.name;
   const session = app?.intake?.term?.session_label;
   const invoice = app?.acceptance_fee_invoice;
-  const canPay = !!invoice?.id && invoice.status !== 'paid';
+  const canPay = !!invoice?.id && ['unpaid', 'partial'].includes(invoice.status);
 
   return (
     <>
