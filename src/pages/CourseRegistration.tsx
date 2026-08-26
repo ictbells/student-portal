@@ -20,17 +20,6 @@ function courseStatusLabel(value?: string) {
   return value || '';
 }
 
-function courseProgrammePrefix(course?: { programs?: { name?: string; code?: string | null }[] } | null) {
-  const labels = (course?.programs || [])
-    .map((program) => program.name || program.code)
-    .filter((value): value is string => Boolean(value));
-  if (labels.length === 0) return '';
-  const shown = labels.slice(0, 3);
-  const extra = labels.length - shown.length;
-  const text = extra > 0 ? `${shown.join(', ')} +${extra}` : shown.join(', ');
-  return `(${text}) `;
-}
-
 function defaultSelectedIds(rows: any[]) {
   return rows.filter(isDefaultSelected).map((row: any) => row.id);
 }
@@ -81,12 +70,6 @@ function apiErrorMessage(e: any, fallback: string) {
     if (typeof first === 'string') return first;
   }
   return data?.message || fallback;
-}
-
-function bucketLabel(value?: string) {
-  if (value === 'general') return 'General';
-  if (value === 'faculty') return 'Faculty';
-  return 'Departmental';
 }
 
 const thClass = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap bg-slate-50';
@@ -249,8 +232,14 @@ export default function CourseRegistration() {
   const blockReason = !canMutate
     ? (reg?.cannot_register_reason || 'Add and drop are unavailable until course registration opens for you.')
     : null;
-  const enrollments = [...(reg?.enrollments || [])].sort((a: any, b: any) => Number(!!b.is_carry_over) - Number(!!a.is_carry_over));
-  const available = reg?.available || [];
+  const enrollments = [...(reg?.enrollments || [])].sort((a: any, b: any) => {
+    const carry = Number(!!b.is_carry_over) - Number(!!a.is_carry_over);
+    if (carry !== 0) return carry;
+    return String(a.offering?.course?.code || '').localeCompare(String(b.offering?.course?.code || ''));
+  });
+  const available = [...(reg?.available || [])].sort((a: any, b: any) => (
+    String(a.course?.code || '').localeCompare(String(b.course?.code || ''))
+  ));
   const termLabel = reg?.term?.name ? `${reg.term.session_label || ''} ${reg.term.name}`.trim() : 'Current semester';
   const selectedRows = available.filter((row: any) => selectedIds.includes(row.id));
   const projectedUnits = addSelectionUnits(reg?.units || {}, selectedRows);
@@ -383,7 +372,6 @@ export default function CourseRegistration() {
                     <tr>
                       <th className={thClass}>Code</th>
                       <th className={thClass}>Title</th>
-                      <th className={thClass}>Type</th>
                       <th className={thClass}>Status</th>
                       <th className={`${thClass} text-center`}>Units</th>
                       <th className={thClass}>Note</th>
@@ -393,7 +381,7 @@ export default function CourseRegistration() {
                   <tbody>
                     {enrollments.length === 0 ? (
                       <tr className={trClass}>
-                        <td className={`${tdClass} text-slate-500`} colSpan={canMutate ? 7 : 6}>
+                        <td className={`${tdClass} text-slate-500`} colSpan={canMutate ? 6 : 5}>
                           No courses registered this semester.
                         </td>
                       </tr>
@@ -403,8 +391,7 @@ export default function CourseRegistration() {
                       return (
                         <tr key={row.id} className={trClass}>
                           <td className={`${tdClass} font-medium whitespace-nowrap`}>{course?.code || '—'}</td>
-                          <td className={tdClass}>{courseProgrammePrefix(course)}{course?.title || '—'}</td>
-                          <td className={`${tdClass} whitespace-nowrap`}>{bucketLabel(courseBucket(row))}</td>
+                          <td className={tdClass}>{course?.title || '—'}</td>
                           <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(course?.status) || '—'}</td>
                           <td className={`${tdClass} text-center`}>{course?.units ?? 0}</td>
                           <td className={tdClass}>
@@ -449,23 +436,20 @@ export default function CourseRegistration() {
                       {canMutate && <th className={`${thClass} w-10`}><span className="sr-only">Select</span></th>}
                       <th className={thClass}>Code</th>
                       <th className={thClass}>Title</th>
-                      <th className={thClass}>Type</th>
                       <th className={thClass}>Status</th>
                       <th className={`${thClass} text-center`}>Units</th>
-                      <th className={thClass}>Seats</th>
                     </tr>
                   </thead>
                   <tbody>
                     {available.length === 0 ? (
                       <tr className={trClass}>
-                        <td className={`${tdClass} text-slate-500`} colSpan={canMutate ? 7 : 6}>
+                        <td className={`${tdClass} text-slate-500`} colSpan={canMutate ? 5 : 4}>
                           No offerings are available for you this semester.
                         </td>
                       </tr>
                     ) : available.map((row: any) => {
                       const checked = selectedIds.includes(row.id);
                       const locked = isRequiredRow(row);
-                      const seats = row.unlimited || row.capacity == null ? 'Unlimited' : `${row.seats_left} left`;
                       return (
                         <tr key={row.id} className={trClass}>
                           {canMutate && (
@@ -482,13 +466,11 @@ export default function CourseRegistration() {
                           )}
                           <td className={`${tdClass} font-medium whitespace-nowrap`}>{row.course?.code || '—'}</td>
                           <td className={tdClass}>
-                            {courseProgrammePrefix(row.course)}{row.course?.title || '—'}
+                            {row.course?.title || '—'}
                             {locked ? <span className="block text-[11px] text-slate-500">Must register</span> : null}
                           </td>
-                          <td className={`${tdClass} whitespace-nowrap`}>{bucketLabel(courseBucket(row))}</td>
                           <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(row.course?.status) || '—'}</td>
                           <td className={`${tdClass} text-center`}>{row.course?.units ?? 0}</td>
-                          <td className={`${tdClass} whitespace-nowrap`}>{seats}</td>
                         </tr>
                       );
                     })}
