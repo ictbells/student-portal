@@ -5,7 +5,7 @@ import api from '../api';
 import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
-import { Button, Card, Spinner } from '../components/ui';
+import { Alert, Button, Card, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
 
 function formatDate(value?: string | null) {
@@ -206,6 +206,8 @@ export default function Hostel() {
   const invoices = data?.invoices || [];
   const canSelect = !!data?.can_select;
   const windowOpen = !!data?.window_open;
+  const tuitionOk = data?.tuition_ok !== false;
+  const tuitionPercent = Number(data?.tuition_percent ?? 0);
   const window = data?.window;
   const outstanding = invoices
     .filter((inv: any) => ['unpaid', 'partial'].includes(String(inv.status || '')))
@@ -223,6 +225,8 @@ export default function Hostel() {
     windowMessage = 'Your bed request is waiting for staff approval.';
   } else if (allocation) {
     windowMessage = 'You already have a hostel bed for this session.';
+  } else if (windowOpen && !tuitionOk) {
+    windowMessage = 'Selection is open. Pay at least 25% of current-session tuition before requesting a bed.';
   } else if (windowOpen) {
     windowMessage = window?.closes_at
       ? `Selection is open until ${formatDateTime(window.closes_at)}.`
@@ -268,6 +272,12 @@ export default function Hostel() {
               </div>
               <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Campus hostel</h2>
               <p className="mt-1.5 text-sm text-slate-200">{windowMessage}</p>
+              {windowOpen && !tuitionOk && !allocation && (
+                <p className="mt-2 text-xs text-amber-100">
+                  Tuition paid: {tuitionPercent}% of the current session. Pay from{' '}
+                  <Link to="/invoices" className="underline text-white">invoices</Link>.
+                </p>
+              )}
               {allocation && (
                 <p className="mt-2 text-xs text-indigo-100/90">
                   {allocation.hostel_name} · Block {allocation.block_name || '—'} · Room {allocation.room_number || '—'} · Bed {allocation.bed_label || '—'}
@@ -297,6 +307,14 @@ export default function Hostel() {
         </div>
       </div>
 
+      {windowOpen && !tuitionOk && !allocation && (
+        <Alert tone="warning">
+          Pay at least 25% of current-session tuition before requesting a hostel bed.{' '}
+          You have paid {Number.isFinite(tuitionPercent) ? tuitionPercent : 0}%.{' '}
+          <Link to="/invoices" className="text-sky-700 underline">Open invoices</Link>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         <Section title="Current allocation" description={allocation?.status === 'pending' ? 'This bed is reserved until staff approve or reject your request.' : 'Your room and bed for this session.'}>
           {allocation ? (
@@ -311,15 +329,16 @@ export default function Hostel() {
               {allocation.session && <Field label="Session" value={allocation.session} />}
             </dl>
           ) : (
-            <EmptyState message={canSelect ? 'No bed yet. Select one while the window is open.' : 'No hostel bed has been assigned yet.'} />
+            <EmptyState message={canSelect ? 'No bed yet. Select one while the window is open.' : (windowOpen && !tuitionOk ? 'Pay at least 25% of current-session tuition to request a bed.' : 'No hostel bed has been assigned yet.')} />
           )}
         </Section>
 
-        <Section title="Selection window" description="Hostel officers open this by level.">
+        <Section title="Selection window" description="Hostel officers open this by category and level. Requesting a bed also requires at least 25% of current-session tuition.">
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Your level" value={data?.level ? `${data.level}L` : '—'} />
             <Field label="Category" value={titleCase(data?.category)} />
             <Field label="Window" value={windowOpen ? 'Open' : 'Closed'} />
+            <Field label="Tuition paid" value={`${Number.isFinite(tuitionPercent) ? tuitionPercent : 0}% · ${tuitionOk ? 'eligible' : 'need 25%'}`} />
             <Field label="Opens" value={window?.opens_at ? formatDateTime(window.opens_at) : '—'} />
             <Field label="Closes" value={window?.closes_at ? formatDateTime(window.closes_at) : '—'} />
             <Field label="Hostel fee" value={
