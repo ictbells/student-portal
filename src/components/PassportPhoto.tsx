@@ -61,7 +61,7 @@ export function PassportPhoto({
           // try the next source
         }
       }
-      const usable = src && /^(data:|blob:)/i.test(src) ? src : null;
+      const usable = src && /^(data:|blob:|https?:)/i.test(src) ? src : null;
       setSafe(usable);
     })();
 

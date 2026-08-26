@@ -4,10 +4,11 @@ import api from '../api';
 import { useAuth } from '../auth';
 import { PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
-import { formatStage, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
+import { liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Card } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
+import { storageUrl } from '../lib/storage';
 
 type Stat = {
   label: string;
@@ -93,7 +94,8 @@ export default function Home() {
   const [notices, setNotices] = useState<any[]>([]);
 
   const isStudent = !!auth?.is_student;
-  const journeyIndex = studentJourneyIndex(auth?.lifecycle_stage, app?.current_step, isStudent);
+  const stage = liveStage(auth?.lifecycle_stage, app?.stage);
+  const journeyIndex = studentJourneyIndex(stage, app?.current_step, isStudent);
   const journeyComplete = journeyIndex >= STUDENT_JOURNEY_STEPS.length;
 
   useEffect(() => {
@@ -147,8 +149,8 @@ export default function Home() {
       },
       {
         label: 'Current stage',
-        value: formatStage(auth?.lifecycle_stage || app?.stage),
-        hint: journeyComplete ? 'Under admissions review' : 'Complete steps 1–7 to submit',
+        value: studentFacingStatus(stage, isStudent),
+        hint: journeyComplete ? 'This updates as admissions moves your file' : 'Complete steps 1–7 to submit',
         tone: journeyComplete ? 'success' : 'default',
       },
       {
@@ -177,7 +179,7 @@ export default function Home() {
         tone: unpaidInvoices.length ? 'warning' : 'success',
       },
     ];
-  }, [app, auth?.lifecycle_stage, auth?.unpaid_application_fee, journeyComplete, progress.done, progress.total, unpaidInvoices.length]);
+  }, [app, auth?.lifecycle_stage, auth?.unpaid_application_fee, isStudent, journeyComplete, progress.done, progress.total, stage, unpaidInvoices.length]);
 
   const studentStats: Stat[] = useMemo(() => {
     const student = auth?.user?.student;
@@ -229,6 +231,7 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
           <PassportPhoto
             applicationId={auth?.application_id}
+            src={storageUrl(app?.steps?.find((s: any) => s.step_key === 'biodata')?.payload?.photo_path) || auth?.nin_identity?.photo_url || null}
             alt={`${auth?.user?.name || 'Student'} passport photograph`}
             className="h-24 w-20 rounded-2xl object-cover ring-2 ring-white shadow-md bg-slate-100 mx-auto sm:mx-0"
             placeholder={(

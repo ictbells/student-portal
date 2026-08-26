@@ -5,32 +5,19 @@ import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { useToast } from '../components/toast';
-import { formatStage, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
+import { formatStage, liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Button, Card, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
+import { storageUrl } from '../lib/storage';
 
 function statusTone(stage?: string) {
   if (!stage) return 'default' as const;
   if (['rejected', 'withdrawn'].includes(stage)) return 'error' as const;
-  if (['offer_issued', 'awaiting_acceptance_fee', 'acceptance_paid', 'matriculated'].includes(stage)) return 'success' as const;
-  if (['submitted', 'screening', 'verification', 'shortlisting', 'recommended', 'approved'].includes(stage)) return 'info' as const;
+  if (['offer_issued', 'awaiting_acceptance_fee', 'acceptance_paid', 'matriculated', 'admission'].includes(stage)) return 'success' as const;
+  if (['submitted', 'screening', 'verification', 'credit_assessment', 'shortlisting', 'recommended', 'recommendation', 'approved', 'approval', 'proposal_review', 'supervisor', 'panel'].includes(stage)) return 'info' as const;
   if (['awaiting_application_fee', 'fee_paid', 'form_in_progress'].includes(stage)) return 'warning' as const;
   return 'default' as const;
-}
-
-function studentFacingStatus(stage?: string, isStudent?: boolean) {
-  if (isStudent || stage === 'matriculated') return 'You are a registered student';
-  if (!stage) return 'No application yet';
-  if (stage === 'awaiting_application_fee') return 'Awaiting application fee payment';
-  if (['fee_paid', 'form_in_progress'].includes(stage)) return 'Complete and submit your application form';
-  if (stage === 'submitted' || stage === 'screening') return 'Submitted — under screening';
-  if (['verification', 'shortlisting', 'recommended', 'approved'].includes(stage)) return 'Under admissions review';
-  if (stage === 'offer_issued' || stage === 'awaiting_acceptance_fee') return 'Admission offer issued';
-  if (stage === 'acceptance_paid') return 'Acceptance fee paid — student creation in progress';
-  if (stage === 'rejected') return 'Application was not successful';
-  if (stage === 'withdrawn') return 'Application withdrawn';
-  return formatStage(stage);
 }
 
 type PrintDoc = { title: string; label: string; html: string };
@@ -64,7 +51,7 @@ export default function Status() {
     return () => document.removeEventListener('keydown', onKey);
   }, [printDoc]);
 
-  const stage = auth?.lifecycle_stage || app?.stage;
+  const stage = liveStage(auth?.lifecycle_stage, app?.stage);
   const journeyIndex = studentJourneyIndex(stage, app?.current_step, auth?.is_student);
   const journeyComplete = journeyIndex >= STUDENT_JOURNEY_STEPS.length;
   const tone = statusTone(stage);
@@ -185,6 +172,7 @@ export default function Status() {
           <div className="flex items-center gap-4">
             <PassportPhoto
               applicationId={auth.application_id}
+              src={storageUrl(app?.steps?.find((s: any) => s.step_key === 'biodata')?.payload?.photo_path) || auth?.nin_identity?.photo_url || null}
               alt="Passport photograph"
               className="h-24 w-20 rounded-xl object-cover ring-1 ring-slate-200 bg-slate-100"
               placeholder={(

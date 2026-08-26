@@ -6,6 +6,7 @@ import { NotificationBell } from './NotificationBell';
 import OfferAcceptanceModal from '../components/OfferAcceptanceModal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { hasPendingAdmissionOffer } from '../lib/offer';
+import { storageUrl } from '../lib/storage';
 
 function CalendarIcon() {
   return (
@@ -200,6 +201,7 @@ export function Shell() {
           <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
             <PassportPhoto
               applicationId={auth?.application_id}
+              src={auth?.nin_identity?.photo_url || storageUrl(auth?.nin_identity?.photo_path) || null}
               alt=""
               className="h-10 w-10 shrink-0 rounded-full object-cover bg-sky-500"
               placeholder={(
@@ -253,6 +255,7 @@ export function Shell() {
             >
               <PassportPhoto
                 applicationId={auth?.application_id}
+                src={auth?.nin_identity?.photo_url || storageUrl(auth?.nin_identity?.photo_path) || null}
                 alt=""
                 className="h-8 w-8 rounded-full object-cover"
                 placeholder={initials(auth?.user?.name)}

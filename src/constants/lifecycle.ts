@@ -69,3 +69,29 @@ export function formatStage(stage?: string) {
   if (!stage) return 'Not started';
   return stage.replaceAll('_', ' ');
 }
+
+/** Prefer the live application file over a stale /api/me snapshot. */
+export function liveStage(authStage?: string | null, appStage?: string | null): string | undefined {
+  return appStage || authStage || undefined;
+}
+
+/** Applicant-facing status that follows the admissions file, not a combined default. */
+export function studentFacingStatus(stage?: string, isStudent?: boolean) {
+  if (isStudent || stage === 'matriculated') return 'You are a registered student';
+  if (!stage) return 'No application yet';
+  if (stage === 'awaiting_application_fee') return 'Awaiting application fee payment';
+  if (['fee_paid', 'form_in_progress'].includes(stage)) return 'Complete and submit your application form';
+  if (stage === 'submitted') return 'Submitted';
+  if (stage === 'screening') return 'Under screening';
+  if (stage === 'verification') return 'Under verification';
+  if (stage === 'credit_assessment') return 'Credit assessment';
+  if (stage === 'shortlisting') return 'Shortlisting';
+  if (stage === 'recommended' || stage === 'recommendation') return 'Recommended for admission';
+  if (stage === 'approved' || stage === 'approval') return 'Approved';
+  if (['proposal_review', 'supervisor', 'panel'].includes(stage)) return formatStage(stage);
+  if (stage === 'offer_issued' || stage === 'awaiting_acceptance_fee' || stage === 'admission') return 'Admission offer issued';
+  if (stage === 'acceptance_paid') return 'Acceptance fee paid — student creation in progress';
+  if (stage === 'rejected') return 'Application was not successful';
+  if (stage === 'withdrawn') return 'Application withdrawn';
+  return formatStage(stage);
+}

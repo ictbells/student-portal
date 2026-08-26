@@ -90,7 +90,7 @@ type UtmeForm = {
 };
 
 function emptyUtmeChoices(): UtmeChoice[] {
-  return [1, 2, 3, 4].map((order) => ({ choice_order: order, institution_name: '', programme_name: '' }));
+  return [1, 2].map((order) => ({ choice_order: order, institution_name: '', programme_name: '' }));
 }
 
 function emptyUtme(): UtmeForm {
@@ -141,7 +141,7 @@ function asUtme(raw: any, fallback?: any): UtmeForm {
         programme_name: row.programme_name || '',
       }))
     : emptyUtmeChoices();
-  while (choices.length < 4) {
+  while (choices.length < 2) {
     choices.push({ choice_order: choices.length + 1, institution_name: '', programme_name: '' });
   }
   return {
@@ -149,7 +149,7 @@ function asUtme(raw: any, fallback?: any): UtmeForm {
     course_choice: source.course_choice || '',
     exam_year: source.exam_year != null && source.exam_year !== '' ? String(source.exam_year) : '',
     subjects,
-    institution_choices: choices.slice(0, 4),
+    institution_choices: choices.slice(0, 2),
   };
 }
 
@@ -1253,7 +1253,7 @@ export default function Wizard() {
         {step.key === 'utme' && (
           <FormSection
             title="JAMB / UTME information"
-            description="Enter your UTME year, aggregate, course choice, four subject scores, and JAMB institution choices. Values from the admission list are filled in when available."
+            description="Enter your UTME year, aggregate, course choice, four subject scores, and both JAMB institution choices. Values from the admission list are filled in when available."
           >
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1324,6 +1324,7 @@ export default function Wizard() {
               </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-slate-800">JAMB institution choices</p>
+                <p className="text-xs text-slate-500">Enter both institution choices.</p>
                 {(payload.utme?.institution_choices || emptyUtmeChoices()).map((row: UtmeChoice, index: number) => (
                   <div key={index} className="grid grid-cols-1 sm:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-end">
                     <div>
