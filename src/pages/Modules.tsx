@@ -531,7 +531,7 @@ export function Invoices() {
               <h3 className="font-semibold text-slate-900">Pay tuition by installment</h3>
               <p className="text-sm text-slate-500 mt-1">
                 {programmeFeeReady
-                  ? 'Choose 25%, 50%, 75%, or 100% of your programme school-fee schedule, then pay from your campus wallet.'
+                  ? 'Choose 25%, 50%, 75%, or 100%. Each option bills the matching fee items set by the bursary (1st–4th 25%, or the full pay-at-once package). Already-paid items are skipped.'
                   : 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'}
               </p>
               {programmeFeeReady && programmeFeeTotal != null && (
@@ -548,7 +548,12 @@ export function Invoices() {
                 disabled={!programmeFeeReady || hasOpenTuition || creatingTuition}
               >
                 {[25, 50, 75, 100].map((p) => (
-                  <option key={p} value={p}>{p}%</option>
+                  <option key={p} value={p}>
+                    {p === 25 ? '25% — 1st installment'
+                      : p === 50 ? '50% — through 2nd'
+                        : p === 75 ? '75% — through 3rd'
+                          : '100% — pay in full'}
+                  </option>
                 ))}
               </select>
               <Button

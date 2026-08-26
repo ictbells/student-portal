@@ -402,7 +402,7 @@ export default function Hostel() {
                 <h3 id="select-bed-title" className="font-semibold text-slate-900">Select a hostel bed</h3>
                 <p className="text-sm text-slate-500 mt-0.5">
                   Choose a hostel, then a block. Rooms in that block appear as a grid; occupied rooms are greyed out.
-                  Staff must approve your request before the bed is allocated.
+                  For bunk rooms, pick a free Lower or Upper bunk. Staff must approve your request before the bed is allocated.
                   {selectedHostel
                     ? (selectedHostel.due_required && Number(selectedHostel.due_amount) > 0
                       ? ` A hostel due of ${formatNaira(selectedHostel.due_amount)} will be invoiced only after staff approve.`
@@ -483,12 +483,15 @@ export default function Hostel() {
                         const occupied = !room.selectable;
                         const selected = selectedRoomId === room.id;
                         const code = room.code || room.number;
+                        const bunkHint = room.uses_bunks
+                          ? (room.available_bunk_summary?.text || `${room.available_beds || 0} free`)
+                          : null;
                         return (
                           <button
                             key={room.id}
                             type="button"
                             disabled={occupied}
-                            title={occupied ? (room.disabled_reason || 'Occupied') : `Room ${code}`}
+                            title={occupied ? (room.disabled_reason || 'Occupied') : (bunkHint ? `Room ${code} · ${bunkHint}` : `Room ${code}`)}
                             onClick={() => {
                               if (occupied) return;
                               setSelectedRoomId(room.id);
@@ -502,7 +505,12 @@ export default function Hostel() {
                                   : 'border-slate-200 bg-white text-slate-800 hover:border-indigo-300 hover:bg-indigo-50/40'
                             }`}
                           >
-                            {code}
+                            <span className="block">{code}</span>
+                            {room.uses_bunks && !occupied && (
+                              <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-slate-500">
+                                Bunk · {room.available_beds ?? 0} free
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -514,12 +522,18 @@ export default function Hostel() {
               {selectedRoom && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    4. Bed in {selectedRoom.code || selectedRoom.number}
+                    4. {selectedRoom.uses_bunks ? 'Bunk' : 'Bed'} in {selectedRoom.code || selectedRoom.number}
                   </p>
+                  {selectedRoom.uses_bunks && selectedRoom.available_bunk_summary?.text && (
+                    <p className="text-xs text-slate-600 mb-2">{selectedRoom.available_bunk_summary.text}</p>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {(selectedRoom.beds || []).map((bed: any) => {
                       const bedTaken = bed.status !== 'available';
                       const selected = pickedBed?.id === bed.id;
+                      const label = bed.display_label || (bed.bunk_position
+                        ? `${bed.bunk_position === 'lower' ? 'Lower' : 'Upper'} bunk${bed.bunk_pair ? ` ${bed.bunk_pair}` : ''}`
+                        : `Bed ${bed.label}`);
                       return (
                         <button
                           key={bed.id}
@@ -527,7 +541,7 @@ export default function Hostel() {
                           disabled={bedTaken}
                           onClick={() => !bedTaken && setPickedBed({
                             id: bed.id,
-                            label: bed.label,
+                            label,
                             room: selectedRoom.code || selectedRoom.number,
                             hostel: selectedHostel?.name || '',
                           })}
@@ -539,7 +553,7 @@ export default function Hostel() {
                                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          Bed {bed.label}{bedTaken ? ' · taken' : ''}
+                          {label}{bedTaken ? ' · taken' : ' · free'}
                         </button>
                       );
                     })}

@@ -18,6 +18,7 @@ import CourseRegistration from './pages/CourseRegistration';
 import Announcements from './pages/Announcements';
 import Notifications from './pages/Notifications';
 import Referee from './pages/Referee';
+import NotFound from './pages/NotFound';
 
 function Guard({ children }: { children: React.ReactNode }) {
   const { auth, loading } = useAuth();
@@ -58,7 +59,9 @@ export default function App() {
         <Route path="documents" element={<Documents />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="notifications" element={<Notifications />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
