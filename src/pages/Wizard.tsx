@@ -127,12 +127,12 @@ function asUtme(raw: any, fallback?: any): UtmeForm {
   const source = raw && typeof raw === 'object' ? raw : (fallback && typeof fallback === 'object' ? fallback : null);
   const base = emptyUtme();
   if (!source) return base;
-  const subjects: UtmeRow[] = Array.isArray(source.subjects) && source.subjects.length
-    ? source.subjects.map((row: any) => ({
-        subject: row.subject || '',
-        score: row.score != null ? String(row.score) : '',
-      }))
-    : [...base.subjects];
+  const subjects: UtmeRow[] = (Array.isArray(source.subjects) ? source.subjects : [])
+    .slice(0, 4)
+    .map((row: any) => ({
+      subject: row.subject || '',
+      score: row.score != null ? String(row.score) : '',
+    }));
   while (subjects.length < 4) subjects.push({ subject: '', score: '' });
   const choices: UtmeChoice[] = Array.isArray(source.institution_choices) && source.institution_choices.length
     ? source.institution_choices.map((row: any, index: number) => ({
@@ -827,20 +827,6 @@ export default function Wizard() {
     });
   };
 
-  const addUtmeSubject = () => {
-    setPayload((prev: any) => {
-      const utme = asUtme(prev.utme);
-      return { ...prev, utme: { ...utme, subjects: [...utme.subjects, { subject: '', score: '' }] } };
-    });
-  };
-
-  const removeUtmeSubject = (index: number) => {
-    setPayload((prev: any) => {
-      const utme = asUtme(prev.utme);
-      return { ...prev, utme: { ...utme, subjects: utme.subjects.filter((_, i) => i !== index) } };
-    });
-  };
-
   const renderSitting = (key: 'first_sitting' | 'second_sitting', title: string, sitting: OlevelSitting, optional = false) => (
     <FormSection title={title} description={optional ? 'Optional — add only if you have a second sitting.' : "Enter your O'Level exam details and subject grades."}>
       <div className="space-y-4">
@@ -1312,8 +1298,9 @@ export default function Wizard() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-slate-800">Subject scores</p>
-                {(payload.utme?.subjects || emptyUtme().subjects).map((row: any, index: number) => (
-                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.75rem_auto] gap-2 items-center">
+                <p className="text-xs text-slate-500">Enter all four UTME subjects.</p>
+                {(asUtme(payload.utme).subjects).map((row: UtmeRow, index: number) => (
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.75rem] gap-2 items-center">
                     <select
                       className={`${selectClass} min-w-0`}
                       value={row.subject || ''}
@@ -1332,14 +1319,8 @@ export default function Wizard() {
                       value={row.score || ''}
                       onChange={(e) => updateUtmeSubject(index, 'score', e.target.value)}
                     />
-                    <Button type="button" onClick={() => removeUtmeSubject(index)} className="text-rose-700 hover:bg-rose-50 shrink-0">
-                      Remove
-                    </Button>
                   </div>
                 ))}
-                <Button type="button" onClick={addUtmeSubject} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
-                  Add subject
-                </Button>
               </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-slate-800">JAMB institution choices</p>

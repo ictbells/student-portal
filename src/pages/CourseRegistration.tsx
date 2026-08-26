@@ -267,7 +267,7 @@ export default function CourseRegistration() {
                         <span>
                           {row.course?.code} {row.course?.title} ({row.course?.units} units)
                           {row.course?.status ? ` · ${courseStatusLabel(row.course.status)}` : ''}
-                          {' · '}{row.seats_left} seats
+                          {' · '}{row.unlimited || row.capacity == null ? 'Unlimited seats' : `${row.seats_left} seats`}
                         </span>
                         <Button
                           type="button"

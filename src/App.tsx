@@ -48,6 +48,7 @@ export default function App() {
       <Route path="/payments/callback" element={<PaymentCallback />} />
       <Route path="/transcript-request" element={<TranscriptRequestPage />} />
       <Route path="/transcript-request/callback" element={<TranscriptRequestCallback />} />
+      <Route path="/transcript-request/:channel" element={<TranscriptRequestPage />} />
       <Route path="/" element={<Guard><Shell /></Guard>}>
         <Route index element={<Home />} />
         <Route path="apply" element={<Apply />} />
