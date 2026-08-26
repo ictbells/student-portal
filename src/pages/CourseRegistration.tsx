@@ -27,6 +27,62 @@ function courseStatusLabel(value?: string) {
   return value || '';
 }
 
+function courseProgrammePrefix(course?: { programs?: { name?: string; code?: string | null }[] } | null) {
+  const labels = (course?.programs || [])
+    .map((program) => program.name || program.code)
+    .filter((value): value is string => Boolean(value));
+  if (labels.length === 0) return '';
+  const shown = labels.slice(0, 3);
+  const extra = labels.length - shown.length;
+  const text = extra > 0 ? `${shown.join(', ')} +${extra}` : shown.join(', ');
+  return `(${text}) `;
+}
+
+function courseHeading(course?: { code?: string; title?: string; programs?: { name?: string; code?: string | null }[] } | null) {
+  if (!course) return '';
+  return `${course.code || ''} ${courseProgrammePrefix(course)}${course.title || ''}`.trim();
+}
+
+function defaultSelectedIds(rows: any[]) {
+  return rows.filter(isDefaultSelected).map((row: any) => row.id);
+}
+
+function isRequiredRow(row: any) {
+  return Boolean(row?.required) || row?.course?.status === 'required';
+}
+
+function isDefaultSelected(row: any) {
+  return isRequiredRow(row) || row?.course?.status !== 'elective';
+}
+
+function courseUnits(row: any) {
+  return Number(row?.course?.units || row?.offering?.course?.units || 0);
+}
+
+function courseBucket(row: any) {
+  return row?.bucket || row?.course?.course_type || row?.offering?.course?.course_type || 'departmental';
+}
+
+function addSelectionUnits(base: Record<string, number>, rows: any[]) {
+  const next = {
+    general: Number(base.general || 0),
+    faculty: Number(base.faculty || 0),
+    departmental: Number(base.departmental || 0),
+    overall: Number(base.overall || 0),
+  };
+  for (const row of rows) {
+    const units = courseUnits(row);
+    const bucket = courseBucket(row);
+    if (bucket === 'general' || bucket === 'faculty' || bucket === 'departmental') {
+      next[bucket] += units;
+    } else {
+      next.departmental += units;
+    }
+    next.overall += units;
+  }
+  return next;
+}
+
 function apiErrorMessage(e: any, fallback: string) {
   const data = e?.response?.data;
   const errors = data?.errors;
@@ -67,11 +123,15 @@ export default function CourseRegistration() {
   const [busyId, setBusyId] = useState<number | string | null>(null);
   const [units, setUnits] = useState('15');
   const [reason, setReason] = useState('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const load = () => {
     setLoading(true);
     return api.get('/api/academic/my-registration')
-      .then((r) => setReg(r.data))
+      .then((r) => {
+        setReg(r.data);
+        setSelectedIds(defaultSelectedIds(r.data?.available || []));
+      })
       .catch(() => setReg(null))
       .finally(() => setLoading(false));
   };
@@ -83,14 +143,23 @@ export default function CourseRegistration() {
 
   if (!auth?.is_student) return <Navigate to="/" replace />;
 
-  const register = async (courseOfferingId: number) => {
-    setBusyId(courseOfferingId);
+  const registerSelected = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('Select the courses you want to register.');
+      return;
+    }
+    setBusyId('register');
     try {
-      await api.post('/api/academic/my-registration', { course_offering_id: courseOfferingId });
-      toast.success('Course registered.');
-      await load();
+      const { data } = await api.post('/api/academic/my-registration', { course_offering_ids: selectedIds });
+      if (data?.enrollments) {
+        setReg(data);
+        setSelectedIds(defaultSelectedIds(data.available || []));
+      } else {
+        await load();
+      }
+      toast.success(`Registered ${selectedIds.length} course${selectedIds.length === 1 ? '' : 's'}.`);
     } catch (e: any) {
-      toast.error(apiErrorMessage(e, 'Could not register this course.'));
+      toast.error(apiErrorMessage(e, 'Could not register the selected courses.'));
     } finally {
       setBusyId(null);
     }
@@ -126,6 +195,13 @@ export default function CourseRegistration() {
     }
   };
 
+  const toggleCourse = (row: any) => {
+    if (isRequiredRow(row)) return;
+    setSelectedIds((current) => (
+      current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id]
+    ));
+  };
+
   const windowStatus = reg?.window || 'Closed';
   const extension = reg?.extension;
   const paidExtension = extension?.status === 'paid';
@@ -134,15 +210,32 @@ export default function CourseRegistration() {
     ? (reg?.cannot_register_reason || 'Add and drop are unavailable until course registration opens for you.')
     : null;
   const enrollments = [...(reg?.enrollments || [])].sort((a: any, b: any) => Number(!!b.is_carry_over) - Number(!!a.is_carry_over));
-  const availableGroups = groupByBucket(reg?.available || []);
+  const available = reg?.available || [];
+  const availableGroups = groupByBucket(available);
   const enrolledGroups = groupByBucket(enrollments);
   const termLabel = reg?.term?.name ? `${reg.term.session_label || ''} ${reg.term.name}`.trim() : 'Current semester';
+  const selectedRows = available.filter((row: any) => selectedIds.includes(row.id));
+  const projectedUnits = addSelectionUnits(reg?.units || {}, selectedRows);
+  const submitting = busyId === 'register';
 
   return (
     <div className="space-y-6">
       <div>
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Course registration' }]} />
-        <PageHeader title="Course registration" description="Add or drop courses for the current semester." />
+        <PageHeader
+          title="Course registration"
+          description="Tick the courses you will take this semester, check your unit totals, then submit once."
+          action={canMutate && available.length > 0 ? (
+            <Button
+              type="button"
+              disabled={submitting || selectedIds.length === 0 || busyId !== null}
+              className="bg-sky-600 hover:bg-sky-700 text-white"
+              onClick={registerSelected}
+            >
+              {submitting ? 'Registering…' : `Register ${selectedIds.length} course${selectedIds.length === 1 ? '' : 's'}`}
+            </Button>
+          ) : undefined}
+        />
       </div>
 
       {loading && !reg && <Spinner label="Loading registration…" />}
@@ -163,7 +256,7 @@ export default function CourseRegistration() {
 
           <div className="space-y-4 text-sm">
             {windowStatus === 'Open' && canMutate && (
-              <Alert tone="info">Registration is open. Add or drop courses until the normal window closes.</Alert>
+              <Alert tone="info">Registration is open. Tick your courses, review the unit checklist, then use Register to submit your choice.</Alert>
             )}
             {windowStatus === 'Late' && !paidExtension && (
               <Alert tone="warning">The open window has closed. Request an extension, pay the invoice, then register until late registration closes.</Alert>
@@ -186,18 +279,32 @@ export default function CourseRegistration() {
               <Alert tone="warning">{blockReason}</Alert>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[...COURSE_BUCKETS, { value: 'overall', label: 'Overall' }].map((bucket) => {
-                const limit = reg.limits?.[bucket.value] || {};
-                const used = reg.units?.[bucket.value] ?? 0;
-                return (
-                  <div key={bucket.value} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{bucket.label}</p>
-                    <p className="font-semibold text-slate-800">{used} / {limit.max ?? '—'} units</p>
-                    <p className="text-xs text-slate-500">Min {limit.min ?? '—'}{limit.grace ? ` · grace +${limit.grace}` : ''}</p>
-                  </div>
-                );
-              })}
+            <div>
+              <h3 className="font-medium text-slate-800 mb-2">Unit checklist</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[...COURSE_BUCKETS, { value: 'overall', label: 'Overall' }].map((bucket) => {
+                  const limit = reg.limits?.[bucket.value] || {};
+                  const enrolled = Number(reg.units?.[bucket.value] ?? 0);
+                  const projected = Number(projectedUnits[bucket.value as keyof typeof projectedUnits] ?? enrolled);
+                  const min = limit.min;
+                  const max = limit.max;
+                  const overMax = max != null && projected > max;
+                  const underMin = min != null && projected > 0 && projected < min;
+                  return (
+                    <div key={bucket.value} className={`rounded-lg border px-3 py-2 ${overMax ? 'border-amber-300 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">{bucket.label}</p>
+                      <p className="font-semibold text-slate-800">{projected} / {max ?? '—'} units</p>
+                      <p className="text-xs text-slate-500">
+                        {enrolled} registered{selectedRows.length ? ` · ${projected - enrolled} selected` : ''}
+                        {min != null ? ` · Min ${min}` : ''}
+                        {limit.grace ? ` · grace +${limit.grace}` : ''}
+                      </p>
+                      {overMax && <p className="text-[11px] text-amber-800 mt-1">Over the maximum.</p>}
+                      {underMin && !overMax && <p className="text-[11px] text-amber-800 mt-1">Below the minimum.</p>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {(reg.carry_overs || []).length > 0 && (
@@ -206,7 +313,7 @@ export default function CourseRegistration() {
                 <ul className="divide-y divide-slate-100">
                   {reg.carry_overs.map((row: any) => (
                     <li key={row.id} className="py-2 flex justify-between gap-3">
-                      <span>{row.offering?.course?.code} {row.offering?.course?.title} ({row.offering?.course?.units} units)</span>
+                      <span>{courseHeading(row.offering?.course)} ({row.offering?.course?.units} units)</span>
                       <span className="text-xs font-medium text-amber-700">Cannot drop</span>
                     </li>
                   ))}
@@ -226,7 +333,7 @@ export default function CourseRegistration() {
                       return (
                         <li key={row.id} className="py-2 flex justify-between gap-3 items-center">
                           <span>
-                            {row.offering?.course?.code} {row.offering?.course?.title} ({row.offering?.course?.units} units)
+                            {courseHeading(row.offering?.course)} ({row.offering?.course?.units} units)
                             {row.offering?.course?.status ? ` · ${courseStatusLabel(row.offering.course.status)}` : ''}
                             {row.is_carry_over ? ' · carry-over' : ''}
                           </span>
@@ -248,7 +355,10 @@ export default function CourseRegistration() {
             </div>
 
             <div>
-              <h3 className="font-medium text-slate-800 mb-1">Available</h3>
+              <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+                <h3 className="font-medium text-slate-800">Available courses</h3>
+                <p className="text-xs text-slate-500">{selectedIds.length} selected</p>
+              </div>
               {paidExtension && extension?.approved_units != null && (
                 <p className="text-xs text-slate-500 mb-2">Your paid extension caps this load at {extension.approved_units} units.</p>
               )}
@@ -262,27 +372,46 @@ export default function CourseRegistration() {
                 <div key={group.value} className="mb-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{group.label}</p>
                   <ul className="divide-y divide-slate-100">
-                    {group.rows.map((row: any) => (
-                      <li key={row.id} className="py-2 flex justify-between gap-3 items-center">
-                        <span>
-                          {row.course?.code} {row.course?.title} ({row.course?.units} units)
-                          {row.course?.status ? ` · ${courseStatusLabel(row.course.status)}` : ''}
-                          {' · '}{row.unlimited || row.capacity == null ? 'Unlimited seats' : `${row.seats_left} seats`}
-                        </span>
-                        <Button
-                          type="button"
-                          disabled={!canMutate || busyId !== null}
-                          title={blockReason || undefined}
-                          className="bg-sky-600 hover:bg-sky-700 text-white"
-                          onClick={() => register(row.id)}
-                        >
-                          {busyId === row.id ? 'Adding…' : 'Register'}
-                        </Button>
-                      </li>
-                    ))}
+                    {group.rows.map((row: any) => {
+                      const checked = selectedIds.includes(row.id);
+                      const locked = isRequiredRow(row);
+                      const seats = row.unlimited || row.capacity == null ? 'Unlimited seats' : `${row.seats_left} seats`;
+                      return (
+                        <li key={row.id} className="py-2">
+                          <label className={`flex items-start gap-3 ${canMutate ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                              checked={checked}
+                              disabled={!canMutate || busyId !== null || locked}
+                              onChange={() => toggleCourse(row)}
+                            />
+                            <span>
+                              <span className="font-medium text-slate-900">{courseHeading(row.course)}</span>
+                              <span className="text-slate-600"> ({row.course?.units} units)</span>
+                              {row.course?.status ? ` · ${courseStatusLabel(row.course.status)}` : ''}
+                              {locked ? ' · must register' : ''}
+                              {' · '}{seats}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
+              {canMutate && available.length > 0 && (
+                <div className="flex justify-end pt-2">
+                  <Button
+                    type="button"
+                    disabled={submitting || selectedIds.length === 0 || busyId !== null}
+                    className="bg-sky-600 hover:bg-sky-700 text-white"
+                    onClick={registerSelected}
+                  >
+                    {submitting ? 'Registering…' : `Register ${selectedIds.length} course${selectedIds.length === 1 ? '' : 's'}`}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {windowStatus === 'Late' && !paidExtension && (

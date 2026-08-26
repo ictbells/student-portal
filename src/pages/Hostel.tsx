@@ -339,8 +339,18 @@ export default function Hostel() {
             <Field label="Category" value={titleCase(data?.category)} />
             <Field label="Window" value={windowOpen ? 'Open' : 'Closed'} />
             <Field label="Tuition paid" value={`${Number.isFinite(tuitionPercent) ? tuitionPercent : 0}% · ${tuitionOk ? 'eligible' : 'need 25%'}`} />
-            <Field label="Opens" value={window?.opens_at ? formatDateTime(window.opens_at) : '—'} />
-            <Field label="Closes" value={window?.closes_at ? formatDateTime(window.closes_at) : '—'} />
+            <Field
+              label="Scheduled open"
+              value={window?.opens_at
+                ? formatDateTime(window.opens_at)
+                : (windowOpen ? 'Open now (no start date)' : '—')}
+            />
+            <Field
+              label="Scheduled close"
+              value={window?.closes_at
+                ? formatDateTime(window.closes_at)
+                : (windowOpen ? 'Until staff close this level' : '—')}
+            />
             <Field label="Hostel fee" value={
               allocation?.due_required && Number(allocation.due_amount) > 0
                 ? (allocation.status === 'pending'
