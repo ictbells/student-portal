@@ -71,7 +71,14 @@ function addSelectionUnits(base: Record<string, number>, rows: any[]) {
 }
 
 function apiErrorMessage(e: any, fallback: string) {
-  const data = e?.response?.data;
+  let data = e?.response?.data;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      if (data.trim()) return fallback;
+    }
+  }
   const errors = data?.errors;
   if (errors && typeof errors === 'object') {
     const first = Object.values(errors).flat().find((v) => typeof v === 'string');
@@ -235,7 +242,7 @@ export default function CourseRegistration() {
   };
 
   const openPrint = (termId?: number) => {
-    const id = termId ?? printTermId;
+    const id = typeof termId === 'number' && Number.isFinite(termId) ? termId : printTermId;
     if (!id) {
       toast.error('Choose the session and semester to print.');
       return;
@@ -364,7 +371,7 @@ export default function CourseRegistration() {
                   type="button"
                   disabled={printLoading || busyId !== null}
                   className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                  onClick={openPrint}
+                  onClick={() => openPrint()}
                 >
                   {printLoading ? 'Preparing…' : 'Print registered courses'}
                 </Button>
@@ -467,7 +474,7 @@ export default function CourseRegistration() {
                       type="button"
                       disabled={printLoading || busyId !== null}
                       className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                      onClick={openPrint}
+                      onClick={() => openPrint()}
                     >
                       {printLoading ? 'Preparing…' : 'Print'}
                     </Button>
