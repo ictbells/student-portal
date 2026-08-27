@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
@@ -117,7 +117,9 @@ export default function CourseRegistration() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [printLoading, setPrintLoading] = useState(false);
   const [printHtml, setPrintHtml] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
   const [printTermId, setPrintTermId] = useState<number | undefined>();
+  const printRequestRef = useRef(0);
 
   const pickPrintTermId = (data: any, previous?: number) => {
     const terms = Array.isArray(data?.print_terms) ? data.print_terms : [];
@@ -144,13 +146,13 @@ export default function CourseRegistration() {
   }, [auth?.is_student]);
 
   useEffect(() => {
-    if (!printHtml) return;
+    if (!printOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPrintHtml(null);
+      if (e.key === 'Escape') closePrint();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [printHtml]);
+  }, [printOpen]);
 
   if (!auth?.is_student) return <Navigate to="/" replace />;
 
@@ -214,23 +216,38 @@ export default function CourseRegistration() {
     ));
   };
 
-  const openPrint = async () => {
-    if (!printTermId) {
-      toast.error('Choose the session and semester to print.');
-      return;
-    }
+  const fetchPrint = async (termId: number) => {
+    const requestId = ++printRequestRef.current;
     setPrintLoading(true);
     try {
       const { data } = await api.get('/api/academic/my-registration/print', {
-        params: { academic_term_id: printTermId },
+        params: { academic_term_id: termId },
         responseType: 'text',
       });
+      if (requestId !== printRequestRef.current) return;
       setPrintHtml(data);
     } catch (e: any) {
+      if (requestId !== printRequestRef.current) return;
       toast.error(apiErrorMessage(e, 'Could not open the course registration printout.'));
     } finally {
-      setPrintLoading(false);
+      if (requestId === printRequestRef.current) setPrintLoading(false);
     }
+  };
+
+  const openPrint = (termId?: number) => {
+    const id = termId ?? printTermId;
+    if (!id) {
+      toast.error('Choose the session and semester to print.');
+      return;
+    }
+    setPrintTermId(id);
+    setPrintOpen(true);
+    void fetchPrint(id);
+  };
+
+  const closePrint = () => {
+    setPrintOpen(false);
+    setPrintHtml(null);
   };
 
   const printCurrent = () => {
@@ -245,7 +262,9 @@ export default function CourseRegistration() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'course-registration.html';
+    const session = String(selectedPrintTerm?.session_label || 'session').replaceAll('/', '-');
+    const semester = String(selectedPrintTerm?.name || 'semester').replaceAll(' ', '-').toLowerCase();
+    a.download = `course-registration-${session}-${semester}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -283,11 +302,53 @@ export default function CourseRegistration() {
   const printSemesters = printTerms.filter((term: any) => printTermKey(term) === selectedPrintSessionKey);
   const canPrint = printTerms.length > 0 && !!printTermId;
 
-  const onPrintSessionChange = (key: string) => {
+  const onPrintSessionChange = (key: string, reload = false) => {
     const terms = printTerms.filter((term: any) => printTermKey(term) === key);
-    const preferred = terms.find((term: any) => term.is_current) ?? terms[0];
-    if (preferred) setPrintTermId(preferred.id);
+    const preferred = terms.find((term: any) => term.id === printTermId)
+      ?? terms.find((term: any) => term.is_current)
+      ?? terms[0];
+    if (!preferred) return;
+    setPrintTermId(preferred.id);
+    if (reload) void fetchPrint(preferred.id);
   };
+
+  const onPrintSemesterChange = (id: number, reload = false) => {
+    setPrintTermId(id);
+    if (reload) void fetchPrint(id);
+  };
+
+  const printTermSelects = (idPrefix: string, reload: boolean) => (
+    <>
+      <div>
+        <Label htmlFor={`${idPrefix}-session`}>Session</Label>
+        <select
+          id={`${idPrefix}-session`}
+          className={selectClass}
+          value={selectedPrintSessionKey}
+          onChange={(e) => onPrintSessionChange(e.target.value, reload)}
+          disabled={printLoading || busyId !== null}
+        >
+          {printSessions.map((session) => (
+            <option key={session.key} value={session.key}>{session.label}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-semester`}>Semester</Label>
+        <select
+          id={`${idPrefix}-semester`}
+          className={selectClass}
+          value={printTermId ?? ''}
+          onChange={(e) => onPrintSemesterChange(Number(e.target.value), reload)}
+          disabled={printLoading || busyId !== null}
+        >
+          {printSemesters.map((term: any) => (
+            <option key={term.id} value={term.id}>{term.name}{term.is_current ? ' (current)' : ''}</option>
+          ))}
+        </select>
+      </div>
+    </>
+  );
 
   return (
     <div className="space-y-6">
@@ -295,7 +356,7 @@ export default function CourseRegistration() {
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Course registration' }]} />
         <PageHeader
           title="Course registration"
-          description="Tick the courses you will take this semester, check your unit totals, then submit once. Print a copy of your registered courses when you are done."
+          description="Tick the courses you will take this semester, check your unit totals, then submit once. Print a copy of your registered courses for any session or semester you have already registered."
           action={(
             <div className="flex flex-wrap gap-2">
               {canPrint && (
@@ -401,34 +462,7 @@ export default function CourseRegistration() {
                 <h3 className="font-medium text-slate-800">Registered courses</h3>
                 {canPrint && (
                   <div className="flex flex-wrap items-end gap-2">
-                    <div>
-                      <Label htmlFor="print-session">Session</Label>
-                      <select
-                        id="print-session"
-                        className={selectClass}
-                        value={selectedPrintSessionKey}
-                        onChange={(e) => onPrintSessionChange(e.target.value)}
-                        disabled={printLoading || busyId !== null}
-                      >
-                        {printSessions.map((session) => (
-                          <option key={session.key} value={session.key}>{session.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="print-semester">Semester</Label>
-                      <select
-                        id="print-semester"
-                        className={selectClass}
-                        value={printTermId ?? ''}
-                        onChange={(e) => setPrintTermId(Number(e.target.value))}
-                        disabled={printLoading || busyId !== null}
-                      >
-                        {printSemesters.map((term: any) => (
-                          <option key={term.id} value={term.id}>{term.name}{term.is_current ? ' (current)' : ''}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {printTermSelects('print', false)}
                     <Button
                       type="button"
                       disabled={printLoading || busyId !== null}
@@ -597,24 +631,25 @@ export default function CourseRegistration() {
         </Card>
       )}
 
-      {(printLoading || printHtml) && (
+      {printOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
-          onClick={() => !printLoading && setPrintHtml(null)}
+          onClick={() => !printLoading && closePrint()}
           role="dialog"
           aria-modal="true"
           aria-label="Course registration printout"
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Document</p>
                 <h3 className="font-semibold text-slate-900 truncate">Course registration</h3>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-end gap-2">
+                {printTermSelects('print-modal', true)}
                 {printHtml && (
                   <>
                     <button type="button" onClick={printCurrent} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
@@ -625,7 +660,7 @@ export default function CourseRegistration() {
                     </button>
                   </>
                 )}
-                <button type="button" onClick={() => setPrintHtml(null)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                <button type="button" onClick={closePrint} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
                   Close
                 </button>
               </div>

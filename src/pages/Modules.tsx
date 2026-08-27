@@ -1296,6 +1296,7 @@ export function Academic() {
   const [printOpen, setPrintOpen] = useState(false);
   const [printHtml, setPrintHtml] = useState('');
   const [printLoading, setPrintLoading] = useState(false);
+  const [printMeta, setPrintMeta] = useState({ eyebrow: 'Unofficial', title: 'Academic transcript (not signed)' });
 
   useEffect(() => {
     if (!auth?.is_student) return;
@@ -1304,18 +1305,22 @@ export function Academic() {
     api.get('/api/exam-clearance').then((r) => setClearance(r.data)).catch(() => setClearance(null));
   }, [auth?.is_student]);
 
-  const openUnofficialTranscript = async () => {
+  const openPrint = async (kind: 'transcript' | 'clearance') => {
+    setPrintMeta(kind === 'transcript'
+      ? { eyebrow: 'Unofficial', title: 'Academic transcript (not signed)' }
+      : { eyebrow: 'Exam sitting', title: 'Exam clearance' });
     setPrintLoading(true);
     setPrintOpen(true);
+    setPrintHtml('');
     try {
-      const { data } = await api.get('/api/academic/transcript', {
+      const { data } = await api.get(kind === 'transcript' ? '/api/academic/transcript' : '/api/exam-clearance', {
         params: { format: 'html' },
         responseType: 'text',
         headers: { Accept: 'text/html' },
       });
       setPrintHtml(typeof data === 'string' ? data : String(data));
     } catch {
-      toast.error('Could not open unofficial transcript.');
+      toast.error(kind === 'transcript' ? 'Could not open unofficial transcript.' : 'Could not open exam clearance for printing.');
       setPrintOpen(false);
     } finally {
       setPrintLoading(false);
@@ -1323,7 +1328,7 @@ export function Academic() {
   };
 
   const printCurrent = () => {
-    const frame = document.getElementById('unofficial-transcript-frame') as HTMLIFrameElement | null;
+    const frame = document.getElementById('academic-print-frame') as HTMLIFrameElement | null;
     frame?.contentWindow?.focus();
     frame?.contentWindow?.print();
   };
@@ -1356,7 +1361,18 @@ export function Academic() {
                 {clearance.term?.name ? `Conditions for ${clearance.term.name}.` : 'Conditions required before you can sit exams.'}
               </p>
             </div>
-            <StatusBadge status={clearance.cleared ? 'paid' : 'unpaid'} />
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${clearance.cleared ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}`}>
+                {clearance.cleared ? 'Cleared' : 'Not cleared'}
+              </span>
+              <Button
+                type="button"
+                onClick={() => openPrint('clearance')}
+                className="bg-white text-slate-800 ring-1 ring-slate-200 hover:bg-slate-50"
+              >
+                Print
+              </Button>
+            </div>
           </div>
           <p className="text-sm font-medium text-slate-800 mb-3">
             {clearance.cleared ? 'You are cleared to sit exams.' : 'You are not yet cleared to sit exams.'}
@@ -1384,7 +1400,7 @@ export function Academic() {
           </div>
           <Button
             type="button"
-            onClick={openUnofficialTranscript}
+            onClick={() => openPrint('transcript')}
             className="bg-sky-600 text-white hover:bg-sky-700"
           >
             View unofficial transcript
@@ -1459,8 +1475,8 @@ export function Academic() {
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-amber-700">Unofficial</p>
-                <h3 className="font-semibold text-slate-900 truncate">Academic transcript (not signed)</h3>
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-700">{printMeta.eyebrow}</p>
+                <h3 className="font-semibold text-slate-900 truncate">{printMeta.title}</h3>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {!printLoading && printHtml && (
@@ -1476,12 +1492,12 @@ export function Academic() {
             <div className="flex-1 min-h-0 bg-slate-100">
               {printLoading || !printHtml ? (
                 <div className="flex items-center justify-center py-24 text-slate-500">
-                  <Spinner label="Loading transcript…" />
+                  <Spinner label="Loading document…" />
                 </div>
               ) : (
                 <iframe
-                  id="unofficial-transcript-frame"
-                  title="Unofficial transcript"
+                  id="academic-print-frame"
+                  title={printMeta.title}
                   srcDoc={printHtml}
                   className="w-full h-[min(70vh,720px)] border-0 bg-white"
                 />

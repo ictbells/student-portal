@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
-import { PageHeader, StepIndicator } from '../components/portal';
-import { PassportPhoto } from '../components/PassportPhoto';
-import { StudentIdentityCard } from '../components/StudentIdentityCard';
-import { liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
-import { Alert, Card } from '../components/ui';
+import { PageHeader } from './portal';
+import { PassportPhoto } from './PassportPhoto';
+import { Card } from './ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
@@ -19,7 +17,7 @@ type Stat = {
   to?: string;
 };
 
-function StatCard({ label, value, hint, tone = 'default', to }: Stat & { to?: string }) {
+function StatCard({ label, value, hint, tone = 'default', to }: Stat) {
   const tones = {
     default: 'border-slate-200/80 bg-white hover:border-slate-300',
     success: 'border-emerald-100 bg-emerald-50/70 hover:border-emerald-200',
@@ -47,48 +45,25 @@ function StatCard({ label, value, hint, tone = 'default', to }: Stat & { to?: st
   );
 }
 
-const APPLICATION_QUICK_LINKS = [
-  { to: '/apply', label: 'Apply', desc: 'Fee & start application', area: 'Application' as const },
-  { to: '/wizard', label: 'Application form', desc: 'Complete your form', area: 'Application' as const },
-  { to: '/status', label: 'Status', desc: 'Track your application', area: 'Application' as const },
-  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Application' as const },
-  { to: '/documents', label: 'Documents', desc: 'Uploads & letters', area: 'Application' as const },
+const STUDENT_QUICK_LINKS = [
+  { to: '/course-registration', label: 'Course registration', desc: 'Add & drop courses', area: 'Registration' as const },
+  { to: '/wallet', label: 'Wallet', desc: 'Top up & pay', area: 'Registration' as const },
+  { to: '/academic', label: 'Academic', desc: 'Results & clearance', area: 'Registration' as const },
+  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Registration' as const },
+  { to: '/clinic', label: 'Clinic', desc: 'Health records', area: 'Registration' as const },
+  { to: '/hostel', label: 'Hostel', desc: 'Room & bed', area: 'Registration' as const },
 ];
 
-function formProgress(app: any): { done: number; total: number } {
-  const formSteps = [
-    'biodata',
-    'personal_details',
-    'health_information',
-    'next_of_kin',
-    'sponsor',
-    'application_form',
-    ...(app?.entry_mode === 'utme' ? ['utme'] : []),
-    'academic_qualifications',
-    'programme_selection',
-    'required_documents',
-  ];
-  const steps = app?.steps || [];
-  const done = formSteps.filter((key) => {
-    const step = steps.find((s: any) => s.step_key === key);
-    return step && step.status !== 'pending';
-  }).length;
-  return { done, total: formSteps.length };
-}
-
-export default function Home() {
+export function StudentCampusDashboard() {
   const { auth } = useAuth();
   const [app, setApp] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [wallet, setWallet] = useState<any>(null);
+  const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [transcript, setTranscript] = useState<any>(null);
   const [notices, setNotices] = useState<any[]>([]);
 
-  const isStudent = !!auth?.is_student;
-  const stage = liveStage(auth?.lifecycle_stage, app?.stage);
-  const journeyIndex = studentJourneyIndex(stage, app?.current_step, isStudent);
-  const journeyComplete = journeyIndex >= STUDENT_JOURNEY_STEPS.length;
-
   useEffect(() => {
-    if (isStudent) return;
     if (auth?.application_id) {
       api.get(`/api/applications/${auth.application_id}`).then((r) => setApp(r.data)).catch(() => setApp(null));
     }
@@ -96,78 +71,64 @@ export default function Home() {
     api.get('/api/announcements', { params: { limit: 3 } })
       .then((r) => setNotices(Array.isArray(r.data) ? r.data : []))
       .catch(() => setNotices([]));
-  }, [auth?.application_id, isStudent]);
+    api.get('/api/wallet').then((r) => setWallet(r.data)).catch(() => setWallet(null));
+    api.get('/api/academic/my-enrollments', { params: { current: 1 } })
+      .then((r) => setEnrollments(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setEnrollments([]));
+    api.get('/api/academic/transcript').then((r) => setTranscript(r.data)).catch(() => setTranscript(null));
+  }, [auth?.application_id]);
 
-  const progress = formProgress(app);
   const unpaidInvoices = invoices.filter((i) => ['unpaid', 'partial'].includes(i.status));
+  const paidInvoices = invoices.filter((i) => i.status === 'paid');
 
-  const applicationStats: Stat[] = useMemo(() => {
-    const feeStatus = app?.application_fee_invoice?.status === 'paid'
-      ? 'Paid'
-      : auth?.unpaid_application_fee
-        ? 'Unpaid'
-        : app?.application_fee_invoice
-          ? String(app.application_fee_invoice.status)
-          : '—';
+  const stats: Stat[] = useMemo(() => {
+    const student = auth?.user?.student;
     return [
       {
-        label: 'Application number',
-        value: app?.application_number || 'Not created',
-        hint: app?.entry_mode ? String(app.entry_mode).toUpperCase() : 'Choose a category to begin',
-        tone: app?.application_number ? 'info' : 'default',
+        label: 'Matric number',
+        value: student?.matric_number || student?.student_number || 'Pending',
+        hint: student?.program?.name || 'Student record',
+        tone: student?.matric_number ? 'success' : 'info',
       },
       {
-        label: 'Current stage',
-        value: studentFacingStatus(stage, isStudent),
-        hint: journeyComplete ? 'This updates as admissions moves your file' : 'Complete steps 1–7 to submit',
-        tone: journeyComplete ? 'success' : 'default',
+        label: 'Programme',
+        value: student?.program?.name || app?.program?.name || '—',
+        hint: student?.level ? `Level ${student.level}` : 'Registered programme',
       },
       {
-        label: 'Application fee',
-        value: feeStatus,
-        hint: app?.application_fee_invoice
-          ? formatNaira(app.application_fee_invoice.amount)
-          : 'Fee appears after you create an application',
-        tone: feeStatus === 'Paid' ? 'success' : feeStatus === 'Unpaid' ? 'warning' : 'default',
-      },
-      {
-        label: 'Form progress',
-        value: `${progress.done} / ${progress.total}`,
-        hint: 'Biodata through required documents',
-        tone: progress.done === progress.total && progress.done > 0 ? 'success' : 'info',
-      },
-      {
-        label: 'Session',
-        value: app?.academic_session?.label || app?.intake?.term?.session_label || '—',
-        hint: app?.intake?.name || 'Open intake window',
+        label: 'Wallet balance',
+        value: wallet ? formatNaira(wallet.balance) : '—',
+        hint: 'Campus wallet',
+        tone: 'info',
       },
       {
         label: 'Outstanding fees',
-        value: String(unpaidInvoices.length),
-        hint: unpaidInvoices.length ? 'Pay outstanding fees to continue' : 'No outstanding fees',
-        tone: unpaidInvoices.length ? 'warning' : 'success',
+        value: wallet?.outstanding != null
+          ? formatNaira(wallet.outstanding)
+          : formatNaira(unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.balance ?? invoice.amount ?? 0), 0)),
+        hint: Number(wallet?.outstanding ?? 0) > 0
+          ? (Number(wallet?.prior_unpaid_count ?? 0) > 0
+            ? 'Pay previous session fees first'
+            : 'Pay outstanding fees to continue')
+          : (paidInvoices.length ? `${paidInvoices.length} paid` : 'School fees & charges'),
+        tone: Number(wallet?.outstanding ?? unpaidInvoices.length) > 0 ? 'warning' : 'success',
+        to: '/invoices',
+      },
+      {
+        label: 'Course registrations',
+        value: String(enrollments.length),
+        hint: enrollments.length ? 'Current semester enrollments' : 'Open course registration to add courses',
+        tone: enrollments.length ? 'success' : 'default',
+        to: '/course-registration',
+      },
+      {
+        label: 'CGPA',
+        value: transcript?.cgpa != null ? String(transcript.cgpa) : (transcript?.gpa != null ? String(transcript.gpa) : '—'),
+        hint: 'Cumulative academic standing (released results)',
+        tone: (transcript?.cgpa ?? transcript?.gpa) != null ? 'info' : 'default',
       },
     ];
-  }, [app, auth?.unpaid_application_fee, isStudent, journeyComplete, progress.done, progress.total, stage, unpaidInvoices.length]);
-
-  if (isStudent) {
-    return (
-      <div className="space-y-6">
-        <StudentIdentityCard />
-      </div>
-    );
-  }
-
-  let cta = { to: '/apply', label: 'Start application' };
-  if (auth?.unpaid_application_fee || auth?.lifecycle_stage === 'awaiting_application_fee') {
-    cta = { to: '/apply', label: 'Pay application fee' };
-  } else if (['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '')) {
-    cta = { to: '/wizard', label: 'Continue application form' };
-  } else if (hasPendingAdmissionOffer(auth)) {
-    cta = { to: '/status', label: 'Accept admission' };
-  } else if (auth?.lifecycle_stage && !['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'].includes(auth.lifecycle_stage)) {
-    cta = { to: '/status', label: 'View application status' };
-  }
+  }, [auth?.user?.student, app?.program?.name, wallet, unpaidInvoices, paidInvoices.length, enrollments.length, transcript?.cgpa, transcript?.gpa]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -186,7 +147,7 @@ export default function Home() {
           />
           <div className="min-w-0 flex-1">
             <PageHeader
-              eyebrow="Admissions"
+              eyebrow="Student dashboard"
               title={`Welcome, ${auth?.user?.name?.split(' ')[0] || 'student'}`}
               description={auth?.university?.name || 'Bells University of Technology'}
               action={
@@ -200,10 +161,10 @@ export default function Home() {
                   </button>
                 ) : (
                   <Link
-                    to={cta.to}
+                    to="/course-registration"
                     className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition"
                   >
-                    {cta.label}
+                    Register courses
                   </Link>
                 )
               }
@@ -211,13 +172,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {!auth?.portal_access && auth?.unpaid_application_fee && (
-        <Alert tone="warning">
-          Pay your application fee to unlock the form.{' '}
-          <Link to="/apply" className="underline font-medium">Go to payment</Link>
-        </Alert>
-      )}
 
       {hasPendingAdmissionOffer(auth) && (
         <Card className="border-emerald-200 bg-emerald-50/60 space-y-3">
@@ -237,31 +191,10 @@ export default function Home() {
         </Card>
       )}
 
-      <Card className="!p-4 sm:!p-5 bg-slate-50/50 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h2 className="font-semibold text-slate-900">Your application journey</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Steps 1–7 are completed by you. Admissions handles review after you submit.
-            </p>
-          </div>
-          {journeyComplete && (
-            <span className="inline-flex self-start rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-              Form complete · under review
-            </span>
-          )}
-        </div>
-        <StepIndicator
-          steps={STUDENT_JOURNEY_STEPS}
-          currentIndex={Math.min(journeyIndex, STUDENT_JOURNEY_STEPS.length - 1)}
-          isStepComplete={(index) => journeyComplete || index < journeyIndex}
-        />
-      </Card>
-
       <div>
         <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {APPLICATION_QUICK_LINKS.map((link) => (
+          {STUDENT_QUICK_LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
@@ -300,9 +233,9 @@ export default function Home() {
       )}
 
       <div>
-        <h2 className="text-sm font-semibold text-slate-900 mb-3">Application overview</h2>
+        <h2 className="text-sm font-semibold text-slate-900 mb-3">Campus overview</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {applicationStats.map((stat) => (
+          {stats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}
         </div>
