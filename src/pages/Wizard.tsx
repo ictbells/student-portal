@@ -395,13 +395,13 @@ export default function Wizard() {
   useEffect(() => {
     const jamb = app?.jamb_registration || auth?.user?.jamb_registration;
     if (!jamb) return;
-    const academicYear = app?.intake?.term?.session_label;
+    const academicYear = app?.academic_session?.label || app?.intake?.term?.session_label;
     api.get(`/api/candidate-data/${encodeURIComponent(jamb)}`, {
       params: academicYear ? { academic_year: academicYear } : undefined,
     })
       .then(({ data }) => setCandidateUtme(data.suggested?.utme ?? null))
       .catch(() => setCandidateUtme(null));
-  }, [app?.jamb_registration, auth?.user?.jamb_registration, app?.intake?.term?.session_label]);
+  }, [app?.jamb_registration, auth?.user?.jamb_registration, app?.academic_session?.label, app?.intake?.term?.session_label]);
 
   useEffect(() => {
     if (steps[idx]?.key !== 'utme' || !candidateUtme) return;

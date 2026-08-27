@@ -60,13 +60,7 @@ function formatDate(value?: string) {
 function intakeOptionLabel(intake: OpenIntake): string {
   const mode = MODE_LABELS[intake.entry_mode]?.label || intake.entry_mode.toUpperCase();
   const session = intake.term?.session_label?.trim();
-  const name = intake.name?.trim();
-  if (session && name && name !== session) {
-    return `${mode} — ${name} (${session})`;
-  }
-  if (name) return `${mode} — ${name}`;
-  if (session) return `${mode} — ${session}`;
-  return mode;
+  return session ? `${mode} (${session})` : mode;
 }
 
 export default function Signup() {

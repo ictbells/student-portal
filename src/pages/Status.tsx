@@ -332,10 +332,10 @@ export default function Status() {
                     </dd>
                   </div>
                 )}
-                {app?.intake?.term?.session_label && (
+                {(app?.academic_session?.label || app?.intake?.term?.session_label) && (
                   <div>
                     <dt className="text-slate-500">Session</dt>
-                    <dd className="font-medium text-slate-900 mt-0.5">{app.intake.term.session_label}</dd>
+                    <dd className="font-medium text-slate-900 mt-0.5">{app.academic_session?.label || app.intake?.term?.session_label}</dd>
                   </div>
                 )}
               </dl>

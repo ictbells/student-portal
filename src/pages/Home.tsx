@@ -169,7 +169,7 @@ export default function Home() {
       },
       {
         label: 'Session',
-        value: app?.intake?.term?.session_label || '—',
+        value: app?.academic_session?.label || app?.intake?.term?.session_label || '—',
         hint: app?.intake?.name || 'Open intake window',
       },
       {

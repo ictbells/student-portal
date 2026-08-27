@@ -102,7 +102,7 @@ export default function OfferAcceptanceModal() {
 
   const firstName = auth?.user?.name?.split(' ')[0] || 'applicant';
   const programme = app?.program?.name;
-  const session = app?.intake?.term?.session_label;
+  const session = app?.academic_session?.label || app?.intake?.term?.session_label;
   const invoice = app?.acceptance_fee_invoice;
   const canPay = !!invoice?.id && ['unpaid', 'partial'].includes(invoice.status);
 

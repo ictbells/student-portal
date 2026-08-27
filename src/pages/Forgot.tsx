@@ -5,7 +5,7 @@ import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Button, Input, Label, Spinner } from '../components/ui';
 
 export default function Forgot() {
-  const [login, setLogin] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
@@ -13,10 +13,10 @@ export default function Forgot() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await api.post('/api/forgot-password', { login: login.trim(), portal: 'student' });
-      toast.success(data.message || 'If that account exists, a reset link was sent to the email on your record.');
+      const { data } = await api.post('/api/forgot-password', { email: email.trim(), portal: 'student' });
+      toast.success(data.message || 'If that email exists, a reset link was sent.');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.errors?.login?.[0] || 'Could not send reset link.');
+      toast.error(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || 'Could not send reset link.');
     } finally {
       setLoading(false);
     }
@@ -25,7 +25,7 @@ export default function Forgot() {
   return (
     <AuthLayout
       title="Forgot password"
-      subtitle="Enter your application number, JAMB number, or matric number. We will email a reset link to the address on your record."
+      subtitle="Enter the email on your student portal record. We will send a reset link if the account exists."
       kicker="Account recovery"
       footer={
         <p className="text-slate-500">
@@ -35,13 +35,16 @@ export default function Forgot() {
     >
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <Label htmlFor="login">Sign-in ID</Label>
+          <Label htmlFor="email">Email</Label>
           <Input
-            id="login"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
-            placeholder="APP/2026/00001, JAMB, or matric number"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="you@example.com"
           />
         </div>
         <Button type="submit" disabled={loading} className={authPrimaryClass}>
