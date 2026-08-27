@@ -11,6 +11,12 @@ import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 
 const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
 const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee', 'transcript'];
+const TUITION_INSTALLMENT_OPTIONS = [
+  { value: 25, label: '25% — 1st installment' },
+  { value: 50, label: '50% — through 2nd' },
+  { value: 75, label: '75% — through 3rd' },
+  { value: 100, label: '100% — pay in full' },
+] as const;
 
 function isOnlineFee(category?: string) {
   return ONLINE_FEE_CATEGORIES.includes(String(category || ''));
@@ -345,7 +351,34 @@ export function Invoices() {
   const [creatingTuition, setCreatingTuition] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [confirmInvoice, setConfirmInvoice] = useState<any | null>(null);
-  const [feeSchedule, setFeeSchedule] = useState<{ schedule_set: boolean; total_amount: number | null } | null>(null);
+  const [feeSchedule, setFeeSchedule] = useState<{
+    schedule_set: boolean;
+    total_amount: number | null;
+    tuition_percent_paid: number;
+    available_installment_percents: number[];
+  } | null>(null);
+
+  const loadFeeSchedule = () => {
+    if (!auth?.is_student) {
+      setFeeSchedule(null);
+      return;
+    }
+    api.get('/api/my-programme-fees')
+      .then((r) => setFeeSchedule({
+        schedule_set: !!r.data.schedule_set,
+        total_amount: r.data.total_amount != null ? Number(r.data.total_amount) : null,
+        tuition_percent_paid: Number(r.data.tuition_percent_paid ?? 0),
+        available_installment_percents: Array.isArray(r.data.available_installment_percents)
+          ? r.data.available_installment_percents.map(Number)
+          : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
+      }))
+      .catch(() => setFeeSchedule({
+        schedule_set: false,
+        total_amount: null,
+        tuition_percent_paid: 0,
+        available_installment_percents: TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
+      }));
+  };
 
   const load = () => {
     setLoading(true);
@@ -353,6 +386,7 @@ export function Invoices() {
       .then((r) => setRows(r.data.data || r.data || []))
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
+    loadFeeSchedule();
   };
 
   const loadWallet = () => {
@@ -362,18 +396,7 @@ export function Invoices() {
 
   useEffect(() => { load(); }, []);
   useEffect(() => { loadWallet(); }, [auth?.is_student]);
-  useEffect(() => {
-    if (!auth?.is_student) {
-      setFeeSchedule(null);
-      return;
-    }
-    api.get('/api/my-programme-fees')
-      .then((r) => setFeeSchedule({
-        schedule_set: !!r.data.schedule_set,
-        total_amount: r.data.total_amount != null ? Number(r.data.total_amount) : null,
-      }))
-      .catch(() => setFeeSchedule({ schedule_set: false, total_amount: null }));
-  }, [auth?.is_student]);
+  useEffect(() => { loadFeeSchedule(); }, [auth?.is_student]);
 
   useEffect(() => {
     if (!receiptHtml && !confirmInvoice) return;
@@ -504,6 +527,27 @@ export function Invoices() {
   const hasOpenTuition = invoiceRows.some((i) => i.category === 'tuition' && ['unpaid', 'partial'].includes(i.status));
   const programmeFeeReady = feeSchedule?.schedule_set ?? !!auth?.programme_fee_set;
   const programmeFeeTotal = feeSchedule?.total_amount ?? auth?.programme_fee_total ?? null;
+  const availableInstallments = useMemo(() => {
+    const paidFromInvoices = rows.reduce((best, row) => {
+      if (row.kind === 'wallet_topup' || row.category !== 'tuition' || row.status !== 'paid') return best;
+      const percent = Number(row.installment_percent ?? 0);
+      return percent > best ? percent : best;
+    }, 0);
+    const paidPercent = Math.max(Number(feeSchedule?.tuition_percent_paid ?? 0), paidFromInvoices);
+    const fromApi = feeSchedule?.available_installment_percents;
+    const base = fromApi && fromApi.length
+      ? fromApi
+      : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value);
+    return base.filter((percent) => percent > paidPercent);
+  }, [feeSchedule, rows]);
+  const tuitionFullyPaid = programmeFeeReady && availableInstallments.length === 0;
+
+  useEffect(() => {
+    if (!availableInstallments.length) return;
+    if (!availableInstallments.includes(installmentPercent)) {
+      setInstallmentPercent(availableInstallments[0]);
+    }
+  }, [availableInstallments, installmentPercent]);
 
   const stats = useMemo(() => ([
     { label: 'Outstanding', value: String(unpaid.length), tone: unpaid.length ? 'warning' : 'success' },
@@ -530,9 +574,11 @@ export function Invoices() {
             <div>
               <h3 className="font-semibold text-slate-900">Pay tuition by installment</h3>
               <p className="text-sm text-slate-500 mt-1">
-                {programmeFeeReady
-                  ? 'Choose 25%, 50%, 75%, or 100%. Each option bills the matching fee items set by the bursary (1st–4th 25%, or the full pay-at-once package). Already-paid items are skipped.'
-                  : 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'}
+                {!programmeFeeReady
+                  ? 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'
+                  : tuitionFullyPaid
+                    ? 'Tuition is paid in full. Paid invoices stay in your transaction history for receipts.'
+                    : 'Choose the next unpaid share. Already-paid installments are hidden. Each option bills the matching fee items set by the bursary (1st–4th 25%, or the full pay-at-once package).'}
               </p>
               {programmeFeeReady && programmeFeeTotal != null && (
                 <p className="text-sm text-slate-600 mt-1">
@@ -540,25 +586,23 @@ export function Invoices() {
                 </p>
               )}
             </div>
+            {!tuitionFullyPaid && (
             <div className="flex flex-wrap items-center gap-2">
               <select
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                 value={installmentPercent}
                 onChange={(e) => setInstallmentPercent(Number(e.target.value))}
-                disabled={!programmeFeeReady || hasOpenTuition || creatingTuition}
+                disabled={!programmeFeeReady || hasOpenTuition || creatingTuition || !availableInstallments.length}
               >
-                {[25, 50, 75, 100].map((p) => (
+                {availableInstallments.map((p) => (
                   <option key={p} value={p}>
-                    {p === 25 ? '25% — 1st installment'
-                      : p === 50 ? '50% — through 2nd'
-                        : p === 75 ? '75% — through 3rd'
-                          : '100% — pay in full'}
+                    {TUITION_INSTALLMENT_OPTIONS.find((option) => option.value === p)?.label ?? `${p}%`}
                   </option>
                 ))}
               </select>
               <Button
                 onClick={createTuitionInstallment}
-                disabled={!programmeFeeReady || hasOpenTuition || creatingTuition}
+                disabled={!programmeFeeReady || hasOpenTuition || creatingTuition || !availableInstallments.length}
               >
                 {creatingTuition
                   ? 'Creating…'
@@ -569,6 +613,7 @@ export function Invoices() {
                       : 'Create tuition invoice'}
               </Button>
             </div>
+            )}
           </div>
         </Card>
       )}
