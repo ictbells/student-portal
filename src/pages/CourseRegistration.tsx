@@ -20,17 +20,25 @@ function courseStatusLabel(value?: string) {
   return value || '';
 }
 
+function isCarryOverRow(row: any) {
+  return Boolean(row?.is_carry_over);
+}
+
+function isDefaultSelected(row: any) {
+  if (isCarryOverRow(row)) return true;
+  const status = String(row?.course?.status || 'core').toLowerCase();
+  return status === 'core' || status === 'required';
+}
+
 function defaultSelectedIds(rows: any[]) {
   return rows.filter(isDefaultSelected).map((row: any) => row.id);
 }
 
-function isRequiredRow(row: any) {
-  return Boolean(row?.required) || row?.course?.status === 'required';
+function printTermKey(term: { academic_session_id?: number | null; session_label?: string }) {
+  return String(term.academic_session_id ?? term.session_label ?? '');
 }
 
-function isDefaultSelected(row: any) {
-  return isRequiredRow(row) || row?.course?.status !== 'elective';
-}
+const selectClass = 'min-w-[160px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800';
 
 function courseUnits(row: any) {
   return Number(row?.course?.units || row?.offering?.course?.units || 0);
@@ -109,6 +117,14 @@ export default function CourseRegistration() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [printLoading, setPrintLoading] = useState(false);
   const [printHtml, setPrintHtml] = useState<string | null>(null);
+  const [printTermId, setPrintTermId] = useState<number | undefined>();
+
+  const pickPrintTermId = (data: any, previous?: number) => {
+    const terms = Array.isArray(data?.print_terms) ? data.print_terms : [];
+    if (previous && terms.some((term: any) => term.id === previous)) return previous;
+    const currentId = data?.term?.id;
+    return terms.find((term: any) => term.id === currentId)?.id ?? terms[0]?.id;
+  };
 
   const load = () => {
     setLoading(true);
@@ -116,6 +132,7 @@ export default function CourseRegistration() {
       .then((r) => {
         setReg(r.data);
         setSelectedIds(defaultSelectedIds(r.data?.available || []));
+        setPrintTermId((current) => pickPrintTermId(r.data, current));
       })
       .catch(() => setReg(null))
       .finally(() => setLoading(false));
@@ -148,6 +165,7 @@ export default function CourseRegistration() {
       if (data?.enrollments) {
         setReg(data);
         setSelectedIds(defaultSelectedIds(data.available || []));
+        setPrintTermId((current) => pickPrintTermId(data, current));
       } else {
         await load();
       }
@@ -190,16 +208,23 @@ export default function CourseRegistration() {
   };
 
   const toggleCourse = (row: any) => {
-    if (isRequiredRow(row)) return;
+    if (isCarryOverRow(row)) return;
     setSelectedIds((current) => (
       current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id]
     ));
   };
 
   const openPrint = async () => {
+    if (!printTermId) {
+      toast.error('Choose the session and semester to print.');
+      return;
+    }
     setPrintLoading(true);
     try {
-      const { data } = await api.get('/api/academic/my-registration/print', { responseType: 'text' });
+      const { data } = await api.get('/api/academic/my-registration/print', {
+        params: { academic_term_id: printTermId },
+        responseType: 'text',
+      });
       setPrintHtml(data);
     } catch (e: any) {
       toast.error(apiErrorMessage(e, 'Could not open the course registration printout.'));
@@ -244,6 +269,25 @@ export default function CourseRegistration() {
   const selectedRows = available.filter((row: any) => selectedIds.includes(row.id));
   const projectedUnits = addSelectionUnits(reg?.units || {}, selectedRows);
   const submitting = busyId === 'register';
+  const printTerms = Array.isArray(reg?.print_terms) ? reg.print_terms : [];
+  const printSessions: { key: string; label: string }[] = [];
+  const seenSessions = new Set<string>();
+  for (const term of printTerms) {
+    const key = printTermKey(term);
+    if (!key || seenSessions.has(key)) continue;
+    seenSessions.add(key);
+    printSessions.push({ key, label: term.session_label || 'Session' });
+  }
+  const selectedPrintTerm = printTerms.find((term: any) => term.id === printTermId) || printTerms[0];
+  const selectedPrintSessionKey = selectedPrintTerm ? printTermKey(selectedPrintTerm) : '';
+  const printSemesters = printTerms.filter((term: any) => printTermKey(term) === selectedPrintSessionKey);
+  const canPrint = printTerms.length > 0 && !!printTermId;
+
+  const onPrintSessionChange = (key: string) => {
+    const terms = printTerms.filter((term: any) => printTermKey(term) === key);
+    const preferred = terms.find((term: any) => term.is_current) ?? terms[0];
+    if (preferred) setPrintTermId(preferred.id);
+  };
 
   return (
     <div className="space-y-6">
@@ -254,7 +298,7 @@ export default function CourseRegistration() {
           description="Tick the courses you will take this semester, check your unit totals, then submit once. Print a copy of your registered courses when you are done."
           action={(
             <div className="flex flex-wrap gap-2">
-              {enrollments.length > 0 && (
+              {canPrint && (
                 <Button
                   type="button"
                   disabled={printLoading || busyId !== null}
@@ -355,15 +399,45 @@ export default function CourseRegistration() {
             <div>
               <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
                 <h3 className="font-medium text-slate-800">Registered courses</h3>
-                {enrollments.length > 0 && (
-                  <Button
-                    type="button"
-                    disabled={printLoading || busyId !== null}
-                    className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    onClick={openPrint}
-                  >
-                    {printLoading ? 'Preparing…' : 'Print'}
-                  </Button>
+                {canPrint && (
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div>
+                      <Label htmlFor="print-session">Session</Label>
+                      <select
+                        id="print-session"
+                        className={selectClass}
+                        value={selectedPrintSessionKey}
+                        onChange={(e) => onPrintSessionChange(e.target.value)}
+                        disabled={printLoading || busyId !== null}
+                      >
+                        {printSessions.map((session) => (
+                          <option key={session.key} value={session.key}>{session.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="print-semester">Semester</Label>
+                      <select
+                        id="print-semester"
+                        className={selectClass}
+                        value={printTermId ?? ''}
+                        onChange={(e) => setPrintTermId(Number(e.target.value))}
+                        disabled={printLoading || busyId !== null}
+                      >
+                        {printSemesters.map((term: any) => (
+                          <option key={term.id} value={term.id}>{term.name}{term.is_current ? ' (current)' : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={printLoading || busyId !== null}
+                      className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                      onClick={openPrint}
+                    >
+                      {printLoading ? 'Preparing…' : 'Print'}
+                    </Button>
+                  </div>
                 )}
               </div>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -449,7 +523,7 @@ export default function CourseRegistration() {
                       </tr>
                     ) : available.map((row: any) => {
                       const checked = selectedIds.includes(row.id);
-                      const locked = isRequiredRow(row);
+                      const locked = isCarryOverRow(row);
                       return (
                         <tr key={row.id} className={trClass}>
                           {canMutate && (
@@ -467,7 +541,7 @@ export default function CourseRegistration() {
                           <td className={`${tdClass} font-medium whitespace-nowrap`}>{row.course?.code || '—'}</td>
                           <td className={tdClass}>
                             {row.course?.title || '—'}
-                            {locked ? <span className="block text-[11px] text-slate-500">Must register</span> : null}
+                            {locked ? <span className="block text-[11px] text-amber-700">Carry-over · cannot uncheck</span> : null}
                           </td>
                           <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(row.course?.status) || '—'}</td>
                           <td className={`${tdClass} text-center`}>{row.course?.units ?? 0}</td>
