@@ -13,8 +13,8 @@ const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
 const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee', 'transcript'];
 const TUITION_INSTALLMENT_OPTIONS = [
   { value: 25, label: '25% — 1st installment' },
-  { value: 50, label: '50% — through 2nd' },
-  { value: 75, label: '75% — through 3rd' },
+  { value: 50, label: '50% — 2nd installment' },
+  { value: 75, label: '75% — 3rd installment' },
   { value: 100, label: '100% — pay in full' },
 ] as const;
 
@@ -578,7 +578,7 @@ export function Invoices() {
                   ? 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'
                   : tuitionFullyPaid
                     ? 'Tuition is paid in full. Paid invoices stay in your transaction history for receipts.'
-                    : 'Choose the next unpaid share. Already-paid installments are hidden. Each option bills the matching fee items set by the bursary (1st–4th 25%, or the full pay-at-once package).'}
+                    : 'Choose the next unpaid share. Already-paid installments stay off this list, and the new invoice only bills unpaid fee items.'}
               </p>
               {programmeFeeReady && programmeFeeTotal != null && (
                 <p className="text-sm text-slate-600 mt-1">
@@ -799,7 +799,7 @@ export function Invoices() {
                 {confirmInvoice.installment_percent ? (
                   <div className="flex justify-between gap-3 mt-1.5">
                     <span className="text-slate-500">Installment</span>
-                    <span className="text-slate-800">{confirmInvoice.installment_percent}% of {formatNaira(confirmInvoice.full_amount)}</span>
+                    <span className="text-slate-800">{confirmInvoice.installment_percent}% installment</span>
                   </div>
                 ) : null}
               </div>
