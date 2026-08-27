@@ -78,6 +78,7 @@ const pageTitles: Record<string, string> = {
   '/status': 'Application status',
   '/invoices': 'Transaction history',
   '/profile': 'My record',
+  '/change-password': 'Change password',
   '/wallet': 'Wallet',
   '/clinic': 'Clinic',
   '/hostel': 'Hostel',
@@ -268,6 +269,14 @@ export function Shell() {
                   <div className="truncate text-sm font-medium text-slate-900">{auth?.user?.name}</div>
                   <div className="truncate text-xs text-slate-500">{auth?.user?.email}</div>
                 </div>
+                <Link
+                  to="/change-password"
+                  role="menuitem"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex w-full items-center px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                >
+                  Change password
+                </Link>
                 <button
                   type="button"
                   role="menuitem"

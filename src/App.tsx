@@ -14,6 +14,7 @@ import { WalletPage, Invoices, Documents, Academic } from './pages/Modules';
 import Clinic from './pages/Clinic';
 import Hostel from './pages/Hostel';
 import Profile from './pages/Profile';
+import ChangePassword from './pages/ChangePassword';
 import CourseRegistration from './pages/CourseRegistration';
 import Announcements from './pages/Announcements';
 import Notifications from './pages/Notifications';
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="status" element={<Status />} />
         <Route path="invoices" element={<Invoices />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="change-password" element={<ChangePassword />} />
         <Route path="wallet" element={<WalletPage />} />
         <Route path="clinic" element={<Clinic />} />
         <Route path="hostel" element={<Hostel />} />

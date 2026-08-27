@@ -356,6 +356,8 @@ export function Invoices() {
     total_amount: number | null;
     tuition_percent_paid: number;
     available_installment_percents: number[];
+    prior_unpaid_count: number;
+    prior_unpaid_amount: number;
   } | null>(null);
 
   const loadFeeSchedule = () => {
@@ -371,12 +373,16 @@ export function Invoices() {
         available_installment_percents: Array.isArray(r.data.available_installment_percents)
           ? r.data.available_installment_percents.map(Number)
           : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
+        prior_unpaid_count: Number(r.data.prior_unpaid_count ?? 0),
+        prior_unpaid_amount: Number(r.data.prior_unpaid_amount ?? 0),
       }))
       .catch(() => setFeeSchedule({
         schedule_set: false,
         total_amount: null,
         tuition_percent_paid: 0,
         available_installment_percents: TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
+        prior_unpaid_count: 0,
+        prior_unpaid_amount: 0,
       }));
   };
 
@@ -528,19 +534,15 @@ export function Invoices() {
   const programmeFeeReady = feeSchedule?.schedule_set ?? !!auth?.programme_fee_set;
   const programmeFeeTotal = feeSchedule?.total_amount ?? auth?.programme_fee_total ?? null;
   const availableInstallments = useMemo(() => {
-    const paidFromInvoices = rows.reduce((best, row) => {
-      if (row.kind === 'wallet_topup' || row.category !== 'tuition' || row.status !== 'paid') return best;
-      const percent = Number(row.installment_percent ?? 0);
-      return percent > best ? percent : best;
-    }, 0);
-    const paidPercent = Math.max(Number(feeSchedule?.tuition_percent_paid ?? 0), paidFromInvoices);
+    const paidPercent = Number(feeSchedule?.tuition_percent_paid ?? 0);
     const fromApi = feeSchedule?.available_installment_percents;
-    const base = fromApi && fromApi.length
+    const base = fromApi
       ? fromApi
       : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value);
     return base.filter((percent) => percent > paidPercent);
-  }, [feeSchedule, rows]);
-  const tuitionFullyPaid = programmeFeeReady && availableInstallments.length === 0;
+  }, [feeSchedule]);
+  const tuitionFullyPaid = programmeFeeReady && availableInstallments.length === 0 && !(feeSchedule?.prior_unpaid_count);
+  const hasPriorUnpaid = Number(feeSchedule?.prior_unpaid_count ?? 0) > 0;
 
   useEffect(() => {
     if (!availableInstallments.length) return;
@@ -550,8 +552,8 @@ export function Invoices() {
   }, [availableInstallments, installmentPercent]);
 
   const stats = useMemo(() => ([
-    { label: 'Outstanding', value: String(unpaid.length), tone: unpaid.length ? 'warning' : 'success' },
-    { label: 'Amount due', value: formatNaira(totalDue), tone: totalDue > 0 ? 'warning' : 'success' },
+    { label: 'Outstanding', value: formatNaira(totalDue), tone: totalDue > 0 ? 'warning' : 'success' },
+    { label: 'Open invoices', value: String(unpaid.length), tone: unpaid.length ? 'warning' : 'success' },
     { label: 'Completed', value: String(paid.length + walletTopups.length), tone: 'info' },
   ]), [unpaid.length, paid.length, walletTopups.length, totalDue]);
 
@@ -568,6 +570,12 @@ export function Invoices() {
         />
       </div>
 
+      {auth?.is_student && hasPriorUnpaid && (
+        <Alert tone="warning">
+          Pay {formatNaira(feeSchedule?.prior_unpaid_amount ?? 0)} from previous sessions and levels before current-session tuition. Open those invoices below and pay them first.
+        </Alert>
+      )}
+
       {auth?.is_student && (
         <Card className="p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -576,9 +584,11 @@ export function Invoices() {
               <p className="text-sm text-slate-500 mt-1">
                 {!programmeFeeReady
                   ? 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'
-                  : tuitionFullyPaid
-                    ? 'Tuition is paid in full. Paid invoices stay in your transaction history for receipts.'
-                    : 'Choose the next unpaid share. Already-paid installments stay off this list, and the new invoice only bills unpaid fee items.'}
+                  : hasPriorUnpaid
+                    ? 'Settle previous session invoices first. Current-session installments stay locked until those are paid.'
+                    : tuitionFullyPaid
+                      ? 'Tuition is paid in full. Paid invoices stay in your transaction history for receipts.'
+                      : 'Choose the next unpaid share. Already-paid installments stay off this list, and the new invoice only bills unpaid fee items.'}
               </p>
               {programmeFeeReady && programmeFeeTotal != null && (
                 <p className="text-sm text-slate-600 mt-1">
@@ -586,7 +596,7 @@ export function Invoices() {
                 </p>
               )}
             </div>
-            {!tuitionFullyPaid && (
+            {!tuitionFullyPaid && !hasPriorUnpaid && (
             <div className="flex flex-wrap items-center gap-2">
               <select
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -681,8 +691,17 @@ export function Invoices() {
                       </td>
                       <td className="px-4 py-3.5 capitalize text-slate-700">
                         {(row.category || 'Fee').replaceAll('_', ' ')}
-                        {row.installment_percent ? (
-                          <div className="text-xs text-slate-500 mt-0.5">{row.installment_percent}% installment</div>
+                        {row.installment_label || (row.installment_percent ? `${row.installment_percent}% installment` : null) ? (
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {row.installment_label || `${row.installment_percent}% installment`}
+                          </div>
+                        ) : null}
+                        {(row.level_code && row.level_code !== 'all') || row.academic_session?.label ? (
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {[row.level_code && row.level_code !== 'all' ? `${row.level_code} level` : null, row.academic_session?.label]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
                         ) : null}
                       </td>
                       <td className="px-4 py-3.5 text-slate-800 whitespace-nowrap">

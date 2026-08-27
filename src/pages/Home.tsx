@@ -203,9 +203,16 @@ export default function Home() {
       },
       {
         label: 'Outstanding fees',
-        value: String(unpaidInvoices.length),
-        hint: paidInvoices.length ? `${paidInvoices.length} paid` : 'School fees & charges',
-        tone: unpaidInvoices.length ? 'warning' : 'success',
+        value: wallet?.outstanding != null
+          ? formatNaira(wallet.outstanding)
+          : formatNaira(unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.balance ?? invoice.amount ?? 0), 0)),
+        hint: Number(wallet?.outstanding ?? 0) > 0
+          ? (Number(wallet?.prior_unpaid_count ?? 0) > 0
+            ? 'Pay previous session fees first'
+            : 'Pay outstanding fees to continue')
+          : (paidInvoices.length ? `${paidInvoices.length} paid` : 'School fees & charges'),
+        tone: Number(wallet?.outstanding ?? unpaidInvoices.length) > 0 ? 'warning' : 'success',
+        to: '/invoices',
       },
       {
         label: 'Course registrations',
@@ -221,7 +228,7 @@ export default function Home() {
         tone: (transcript?.cgpa ?? transcript?.gpa) != null ? 'info' : 'default',
       },
     ];
-  }, [auth?.user?.student, app?.program?.name, wallet, unpaidInvoices.length, paidInvoices.length, enrollments.length, transcript?.cgpa, transcript?.gpa]);
+  }, [auth?.user?.student, app?.program?.name, wallet, unpaidInvoices, paidInvoices.length, enrollments.length, transcript?.cgpa, transcript?.gpa]);
 
   const stats = isStudent ? studentStats : applicationStats;
 
