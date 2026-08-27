@@ -230,7 +230,7 @@ export default function Hostel() {
   } else if (windowOpen) {
     windowMessage = window?.closes_at
       ? `Selection is open until ${formatDateTime(window.closes_at)}.`
-      : 'Selection is open until the current academic session ends.';
+      : 'Selection is open until staff close this level.';
   } else if (window?.opens_at && new Date(window.opens_at).getTime() > Date.now()) {
     windowMessage = `Selection opens on ${formatDateTime(window.opens_at)}.`;
   } else if (window?.closes_at && new Date(window.closes_at).getTime() < Date.now()) {
@@ -333,7 +333,7 @@ export default function Hostel() {
           )}
         </Section>
 
-        <Section title="Selection window" description="Hostel officers open this by category and level. The window follows the current academic session unless a specific close date is set.">
+        <Section title="Selection window" description="Hostel officers open this by category and level. Opening a level lets you request a bed now. Last session’s room is kept in history so you can choose again for this level.">
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Your level" value={data?.level ? `${data.level}L` : '—'} />
             <Field label="Category" value={titleCase(data?.category)} />

@@ -111,7 +111,9 @@ export default function Home() {
   useEffect(() => {
     if (!isStudent) return;
     api.get('/api/wallet').then((r) => setWallet(r.data)).catch(() => setWallet(null));
-    api.get('/api/academic/my-enrollments').then((r) => setEnrollments(Array.isArray(r.data) ? r.data : [])).catch(() => setEnrollments([]));
+    api.get('/api/academic/my-enrollments', { params: { current: 1 } })
+      .then((r) => setEnrollments(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setEnrollments([]));
     api.get('/api/academic/transcript').then((r) => setTranscript(r.data)).catch(() => setTranscript(null));
   }, [isStudent]);
 
@@ -217,7 +219,7 @@ export default function Home() {
       {
         label: 'Course registrations',
         value: String(enrollments.length),
-        hint: enrollments.length ? 'Current academic enrollments' : 'Open course registration to add courses',
+        hint: enrollments.length ? 'Current semester enrollments' : 'Open course registration to add courses',
         tone: enrollments.length ? 'success' : 'default',
         to: '/course-registration',
       },

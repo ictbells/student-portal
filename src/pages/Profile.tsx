@@ -112,12 +112,10 @@ export default function Profile() {
   const { auth } = useAuth();
   const student = auth?.user?.student;
   const [registration, setRegistration] = useState<any>(null);
-  const [invoices, setInvoices] = useState<any[]>([]);
 
   useEffect(() => {
     if (!auth?.is_student) return;
     api.get('/api/academic/my-registration').then((r) => setRegistration(r.data)).catch(() => setRegistration(null));
-    api.get('/api/invoices').then((r) => setInvoices(r.data.data || r.data || [])).catch(() => setInvoices([]));
   }, [auth?.is_student]);
 
   const fullName = useMemo(() => {
@@ -142,33 +140,12 @@ export default function Profile() {
   const semesterLabel = formatSemester(term?.name || auth.current_semester);
   const registrationStatus = term?.registration_status || 'Closed';
 
-  const tuitionInvoices = invoices.filter((row) => String(row.category || '') === 'tuition');
   const tuitionPercent = Number(registration?.tuition_percent);
-  const tuitionStatus = (() => {
-    if (Number.isFinite(tuitionPercent)) {
-      if (tuitionPercent >= 100) return 'Paid';
-      if (tuitionPercent > 0) return 'Part';
-      return 'Pending';
-    }
-    // Fallback when registration payload is unavailable: compare receipts to full fee.
-    if (!tuitionInvoices.length) return 'Pending';
-    let billed = 0;
-    let paid = 0;
-    for (const row of tuitionInvoices) {
-      const full = Number(row.full_amount ?? row.amount ?? 0);
-      billed = Math.max(billed, full);
-      const receipts = Array.isArray(row.payments) ? row.payments : [];
-      paid += receipts
-        .filter((payment: any) => ['successful', 'paid'].includes(String(payment.status || '')))
-        .reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
-      if (!receipts.length && ['paid', 'partial'].includes(String(row.status || ''))) {
-        paid += Math.max(0, full - Number(row.balance ?? 0));
-      }
-    }
-    if (billed > 0 && paid >= billed - 0.009) return 'Paid';
-    if (paid > 0.009) return 'Part';
-    return 'Pending';
-  })();
+  const tuitionStatus = Number.isFinite(tuitionPercent) && tuitionPercent >= 100
+    ? 'Paid'
+    : Number.isFinite(tuitionPercent) && tuitionPercent > 0
+      ? 'Part'
+      : 'Pending';
 
   const courseRegistration = registration?.roster_status === 'registered'
     ? 'Registered'
