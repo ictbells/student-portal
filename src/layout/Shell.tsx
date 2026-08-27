@@ -45,7 +45,6 @@ function NavIcon({ name }: { name: string }) {
     documents: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z',
     clinic: 'M11 2v6H5v4h6v6h4v-6h6V8h-6V2h-4Z',
     hostel: 'M3 21h18M6 21V8l6-4 6 4v13M9 21v-6h6v6',
-    announcements: 'M3 11v2a1 1 0 0 0 1 1h1l5 4V6L5 10H4a1 1 0 0 0-1 1Zm13.5-4.5a6.5 6.5 0 0 1 0 11',
   };
   return (
     <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -68,7 +67,6 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
     { to: '/academic', label: 'Academic', icon: 'academic', show: !!auth?.is_student },
     { to: '/course-registration', label: 'Course registration', icon: 'academic', show: !!auth?.is_student },
     { to: '/documents', label: 'Documents', icon: 'documents', show: true },
-    { to: '/announcements', label: 'Announcements', icon: 'announcements', show: true },
   ];
   return items.filter((i) => i.show);
 }
