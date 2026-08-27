@@ -55,6 +55,36 @@ const APPLICATION_QUICK_LINKS = [
   { to: '/documents', label: 'Documents', desc: 'Uploads & letters', area: 'Application' as const },
 ];
 
+const STUDENT_QUICK_LINKS = [
+  { to: '/course-registration', label: 'Course registration', desc: 'Add & drop courses', area: 'Registration' as const },
+  { to: '/wallet', label: 'Wallet', desc: 'Top up & pay', area: 'Registration' as const },
+  { to: '/academic', label: 'Academic', desc: 'Results & clearance', area: 'Registration' as const },
+  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Registration' as const },
+  { to: '/clinic', label: 'Clinic', desc: 'Health records', area: 'Registration' as const },
+  { to: '/hostel', label: 'Hostel', desc: 'Room & bed', area: 'Registration' as const },
+];
+
+function QuickLinks({ links }: { links: typeof APPLICATION_QUICK_LINKS | typeof STUDENT_QUICK_LINKS }) {
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {links.map((link) => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{link.area}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900 group-hover:text-sky-700 transition">{link.label}</p>
+            <p className="text-xs text-slate-500 mt-1">{link.desc}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function formProgress(app: any): { done: number; total: number } {
   const formSteps = [
     'biodata',
@@ -154,6 +184,7 @@ export default function Home() {
     return (
       <div className="space-y-6">
         <StudentIdentityCard />
+        <QuickLinks links={STUDENT_QUICK_LINKS} />
       </div>
     );
   }
@@ -258,22 +289,7 @@ export default function Home() {
         />
       </Card>
 
-      <div>
-        <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {APPLICATION_QUICK_LINKS.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{link.area}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900 group-hover:text-sky-700 transition">{link.label}</p>
-              <p className="text-xs text-slate-500 mt-1">{link.desc}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
+      <QuickLinks links={APPLICATION_QUICK_LINKS} />
 
       {notices.length > 0 && (
         <div>

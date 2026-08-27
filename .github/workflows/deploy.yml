@@ -144,10 +144,11 @@ jobs:
             exit 1
           fi
           PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
-          PATHS="/index.html /*"
-          [[ -n "$PREFIX" ]] && PATHS="/$PREFIX /${PREFIX}/* /${PREFIX}/index.html"
-          # shellcheck disable=SC2086
-          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths $PATHS
+          if [[ -n "$PREFIX" ]]; then
+            aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/${PREFIX}/*"
+          else
+            aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/*"
+          fi
 
       - name: Deploy to VPS
         if: ${{ steps.resolve.outputs.target == 'vps' }}

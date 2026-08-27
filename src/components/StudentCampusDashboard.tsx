@@ -45,15 +45,6 @@ function StatCard({ label, value, hint, tone = 'default', to }: Stat) {
   );
 }
 
-const STUDENT_QUICK_LINKS = [
-  { to: '/course-registration', label: 'Course registration', desc: 'Add & drop courses', area: 'Registration' as const },
-  { to: '/wallet', label: 'Wallet', desc: 'Top up & pay', area: 'Registration' as const },
-  { to: '/academic', label: 'Academic', desc: 'Results & clearance', area: 'Registration' as const },
-  { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Registration' as const },
-  { to: '/clinic', label: 'Clinic', desc: 'Health records', area: 'Registration' as const },
-  { to: '/hostel', label: 'Hostel', desc: 'Room & bed', area: 'Registration' as const },
-];
-
 export function StudentCampusDashboard() {
   const { auth } = useAuth();
   const [app, setApp] = useState<any>(null);
@@ -190,23 +181,6 @@ export function StudentCampusDashboard() {
           </button>
         </Card>
       )}
-
-      <div>
-        <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {STUDENT_QUICK_LINKS.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{link.area}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900 group-hover:text-sky-700 transition">{link.label}</p>
-              <p className="text-xs text-slate-500 mt-1">{link.desc}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
 
       {notices.length > 0 && (
         <div>
