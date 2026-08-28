@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
@@ -231,13 +232,18 @@ function InvoiceCard({
             >
               Pay this invoice
             </Link>
-          ) : row.status === 'paid' ? (
+          ) : null}
+          {asRows(row.payments).length > 0 || row.status === 'paid' ? (
             <button
               type="button"
-              onClick={() => onOpenReceipt({
-                invoiceId: row.id,
-                receiptNo: asRows(row.payments)[0]?.receipt_no || row.number,
-              })}
+              onClick={() => {
+                const payment = asRows(row.payments)[0];
+                onOpenReceipt({
+                  paymentId: payment?.id,
+                  invoiceId: row.id,
+                  receiptNo: payment?.receipt_no || row.number,
+                });
+              }}
               className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               View receipt
@@ -256,6 +262,7 @@ export default function FinancialStatus() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [receiptHtml, setReceiptHtml] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [receiptTitle, setReceiptTitle] = useState('Receipt');
   const [receiptLoading, setReceiptLoading] = useState(false);
 
@@ -273,19 +280,65 @@ export default function FinancialStatus() {
 
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    if (!receiptHtml) {
+      setReceiptUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([receiptHtml], { type: 'text/html;charset=utf-8' }));
+    setReceiptUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receiptHtml]);
+
+  useEffect(() => {
+    if (!receiptHtml && !receiptLoading) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !receiptLoading) {
+        setReceiptHtml(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [receiptHtml, receiptLoading]);
+
+  const receiptErrorMessage = (err: any, fallback = 'Could not open receipt.') => {
+    const data = err?.response?.data;
+    if (typeof data === 'string') {
+      try {
+        const parsed = JSON.parse(data);
+        if (typeof parsed?.message === 'string' && parsed.message.trim()) return parsed.message;
+      } catch {
+        // HTML or plain text
+      }
+    }
+    if (data && typeof data === 'object' && typeof data.message === 'string' && data.message.trim()) {
+      return data.message;
+    }
+    return fallback;
+  };
+
+  const fetchReceiptHtml = async (opts: { invoiceId?: number; paymentId?: number }) => {
+    const { data } = opts.paymentId
+      ? await api.get(`/api/payments/${opts.paymentId}/receipt`, { responseType: 'text' })
+      : await api.get(`/api/invoices/${opts.invoiceId}/receipt`, { responseType: 'text' });
+    return typeof data === 'string' ? data : String(data ?? '');
+  };
+
   const openReceipt = async (opts: { invoiceId?: number; paymentId?: number; receiptNo?: string }) => {
+    if (!opts.paymentId && !opts.invoiceId) return;
     setReceiptLoading(true);
     setReceiptHtml(null);
     const receiptNo = opts.receiptNo || opts.invoiceId || opts.paymentId;
     setReceiptTitle(`Receipt ${receiptNo}`);
     try {
-      const { data } = opts.paymentId
-        ? await api.get(`/api/payments/${opts.paymentId}/receipt`, { responseType: 'text' })
-        : await api.get(`/api/invoices/${opts.invoiceId}/receipt`, { responseType: 'text' });
-      setReceiptHtml(data);
+      const html = await fetchReceiptHtml(opts);
+      if (!html || html === '[object Object]') {
+        throw new Error('Could not open receipt.');
+      }
+      setReceiptHtml(html);
     } catch (e: any) {
       setReceiptHtml(null);
-      toast.error(e.response?.data?.message || 'Could not open receipt.');
+      toast.error(receiptErrorMessage(e));
     } finally {
       setReceiptLoading(false);
     }
@@ -447,14 +500,14 @@ export default function FinancialStatus() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-semibold tabular-nums text-emerald-700">{formatNaira(row.amount)}</p>
-                    {row.invoice_id || row.id ? (
+                    {row.id || row.invoice_id ? (
                       <button
                         type="button"
-                        onClick={() => openReceipt(
-                          row.invoice_id
-                            ? { invoiceId: row.invoice_id, receiptNo: row.receipt_no || row.reference }
-                            : { paymentId: row.id, receiptNo: row.receipt_no || row.reference },
-                        )}
+                        onClick={() => openReceipt({
+                          paymentId: row.id,
+                          invoiceId: row.invoice_id,
+                          receiptNo: row.receipt_no || row.reference,
+                        })}
                         className="mt-1 text-xs font-medium text-sky-700 hover:underline"
                       >
                         View
@@ -502,9 +555,9 @@ export default function FinancialStatus() {
         </section>
       </div>
 
-      {(receiptLoading || receiptHtml) && (
+      {(receiptLoading || receiptHtml) && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50"
           onClick={() => !receiptLoading && setReceiptHtml(null)}
           role="dialog"
           aria-modal="true"
@@ -529,15 +582,23 @@ export default function FinancialStatus() {
                 <button type="button" onClick={() => { setReceiptHtml(null); setReceiptLoading(false); }} disabled={receiptLoading} className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20">Close</button>
               </div>
             </div>
-            <div className="flex-1 min-h-[60vh] bg-slate-100">
-              {receiptLoading || !receiptHtml ? (
-                <div className="flex items-center justify-center h-full text-slate-500"><Spinner label="Loading receipt…" /></div>
+            <div className="flex-1 min-h-0 overflow-auto bg-[#e8eef3]">
+              {receiptLoading || !receiptUrl ? (
+                <div className="flex items-center justify-center py-24 text-slate-500">
+                  <Spinner label="Loading receipt…" />
+                </div>
               ) : (
-                <iframe id="finance-receipt-frame" title={receiptTitle} srcDoc={receiptHtml} className="w-full h-full border-0 bg-white" />
+                <iframe
+                  id="finance-receipt-frame"
+                  title={receiptTitle}
+                  src={receiptUrl}
+                  className="block w-full h-[min(78vh,900px)] border-0 bg-[#e8eef3]"
+                />
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

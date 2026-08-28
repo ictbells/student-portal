@@ -10,7 +10,6 @@ import { Alert, Card } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
-import AdmissionGuidePopup from '../components/AdmissionGuidePopup';
 
 type Stat = {
   label: string;
@@ -186,7 +185,6 @@ export default function Home() {
     return (
       <div className="space-y-6">
         <StudentIdentityCard />
-        <AdmissionGuidePopup trigger="card" />
         <QuickLinks links={STUDENT_QUICK_LINKS} />
       </div>
     );
@@ -293,7 +291,6 @@ export default function Home() {
       </Card>
 
       <QuickLinks links={APPLICATION_QUICK_LINKS} />
-      <AdmissionGuidePopup trigger="card" />
 
       {notices.length > 0 && (
         <div>
