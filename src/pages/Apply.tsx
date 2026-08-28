@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { IdentityCard, PageHeader } from '../components/portal';
@@ -9,6 +9,7 @@ import { formatNaira } from '../lib/money';
 import { storageUrl } from '../lib/storage';
 
 const JAMB_ENTRY_MODES = ['utme', 'de'];
+const IN_PROGRESS_STAGES = ['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'];
 
 function biodataPhotoPath(app: any): string | null {
   const payload = app?.steps?.find((s: any) => s.step_key === 'biodata')?.payload;
@@ -101,21 +102,11 @@ export default function Apply() {
     refresh();
     loadOpenIntakes();
     api.get('/api/applications').then((r) => {
-      const first = r.data.data?.[0] || r.data[0];
-      if (first) setApp(first);
+      const rows = Array.isArray(r.data?.data) ? r.data.data : (Array.isArray(r.data) ? r.data : []);
+      const inProgress = rows.find((row: { stage?: string }) => IN_PROGRESS_STAGES.includes(row.stage || ''));
+      if (inProgress) setApp(inProgress);
     }).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (auth?.is_student) {
-      nav('/', { replace: true });
-      return;
-    }
-    const stage = auth?.lifecycle_stage;
-    if (stage && !['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'].includes(stage)) {
-      nav('/status', { replace: true });
-    }
-  }, [auth?.is_student, auth?.lifecycle_stage, nav]);
 
   useEffect(() => {
     if (!app?.id) return;
@@ -220,6 +211,10 @@ export default function Apply() {
     || storageUrl(biodataPhotoPath(app))
     || null;
 
+  if (auth?.is_student) {
+    return <Navigate to={auth.nin_verified ? '/' : '/verify-nin'} replace />;
+  }
+
   const primaryBtn = 'w-full min-h-12 sm:min-h-11 sm:w-auto touch-manipulation shadow-sm';
 
   return (
@@ -301,7 +296,7 @@ export default function Apply() {
 
               {requiresJamb && (
                 <div>
-                  <Label htmlFor="jamb">
+                  <Label htmlFor="jamb" required>
                     {selectedIntake?.entry_mode === 'de' ? 'JAMB Direct Entry number' : 'JAMB registration number'}
                   </Label>
                   <Input

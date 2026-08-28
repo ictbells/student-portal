@@ -90,7 +90,7 @@ export function studentFacingStatus(stage?: string, isStudent?: boolean) {
   if (stage === 'approved' || stage === 'approval') return 'Approved';
   if (['proposal_review', 'supervisor', 'panel'].includes(stage)) return formatStage(stage);
   if (stage === 'offer_issued' || stage === 'awaiting_acceptance_fee' || stage === 'admission') return 'Admission offer issued';
-  if (stage === 'acceptance_paid') return 'Acceptance fee paid — student creation in progress';
+  if (stage === 'acceptance_paid') return 'Acceptance fee paid — come to campus for physical clearance';
   if (stage === 'rejected') return 'Application was not successful';
   if (stage === 'withdrawn') return 'Application withdrawn';
   return formatStage(stage);

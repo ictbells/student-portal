@@ -613,6 +613,7 @@ export function Invoices() {
               <Button
                 onClick={createTuitionInstallment}
                 disabled={!programmeFeeReady || hasOpenTuition || creatingTuition || !availableInstallments.length}
+                className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
               >
                 {creatingTuition
                   ? 'Creating…'
@@ -1293,21 +1294,9 @@ function formatGpa(value: unknown): string {
   return Number.isFinite(n) ? n.toFixed(2) : String(value);
 }
 
-function formatCourseResult(row: { letter?: string | null; score?: number | string | null } | null | undefined): string {
-  if (!row) return '—';
-  const letter = String(row.letter || '').trim();
-  const score = row.score != null && row.score !== '' ? Number(row.score) : NaN;
-  const scoreLabel = Number.isFinite(score) ? String(score) : '';
-  if (letter && scoreLabel) return `${letter} · ${scoreLabel}`;
-  if (letter) return letter;
-  if (scoreLabel) return scoreLabel;
-  return '—';
-}
-
 export function Academic() {
   const { auth } = useAuth();
   const toast = useToast();
-  const [rows, setRows] = useState<any[]>([]);
   const [tr, setTr] = useState<any>(null);
   const [clearance, setClearance] = useState<any>(null);
   const [printOpen, setPrintOpen] = useState(false);
@@ -1317,7 +1306,6 @@ export function Academic() {
 
   useEffect(() => {
     if (!auth?.is_student) return;
-    api.get('/api/academic/my-enrollments').then((r) => setRows(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get('/api/academic/transcript').then((r) => setTr(r.data)).catch(() => {});
     api.get('/api/exam-clearance').then((r) => setClearance(r.data)).catch(() => setClearance(null));
   }, [auth?.is_student]);
@@ -1356,7 +1344,7 @@ export function Academic() {
     <div className="space-y-6">
       <div>
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Academic' }]} />
-        <PageHeader title="Academic" description="Exam clearance, unsigned transcript, course standing, and your unofficial transcript." />
+        <PageHeader title="Academic" description="Exam clearance, unsigned transcript, and your unofficial transcript." />
       </div>
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1458,34 +1446,15 @@ export function Academic() {
             )}
           </div>
         )}
-        {(rows || []).length === 0 && <p className="text-sm text-slate-500">No course registrations yet.</p>}
-        <ul className="divide-y divide-slate-100 text-sm">
-          {rows.map((e) => (
-            <li key={e.id} className="py-2.5 flex justify-between gap-3">
-              <span>{e.offering?.course?.code} {e.offering?.course?.title}</span>
-              <span className="font-medium text-slate-700">
-                {e.pending_grade ? 'Pending' : formatCourseResult(e.grade)}
-              </span>
-            </li>
-          ))}
-        </ul>
         {Array.isArray(tr?.terms) && tr.terms.length > 0 && (
           <div className="mt-6 space-y-4">
             <h3 className="font-semibold text-slate-900">By semester</h3>
             {tr.terms.map((term: any) => (
               <div key={term.academic_term_id} className="rounded-lg border border-slate-100 p-3">
-                <div className="flex justify-between text-sm mb-2">
+                <div className="flex justify-between text-sm">
                   <span className="font-medium">{term.session_label} · {term.name}</span>
                   <span>GPA {formatGpa(term.gpa)}</span>
                 </div>
-                <ul className="text-sm divide-y divide-slate-50">
-                  {(term.rows || []).map((row: any) => (
-                    <li key={row.id} className="py-1.5 flex justify-between">
-                      <span>{row.course?.code} {row.course?.title}</span>
-                      <span>{formatCourseResult(row)}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
             ))}
           </div>

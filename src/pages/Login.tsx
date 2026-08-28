@@ -4,6 +4,7 @@ import api, { networkErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
+import AdmissionGuidePopup from '../components/AdmissionGuidePopup';
 import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 import { resetOfferPrompt } from '../lib/offer';
 
@@ -46,9 +47,12 @@ export default function Login() {
       title="Welcome back"
       subtitle="Sign in with the identifier issued for your application or enrolment."
       footer={
-        <p className="text-slate-500">
-          New applicant? <AuthLink to="/signup">Create account</AuthLink>
-        </p>
+        <div className="space-y-3">
+          <AdmissionGuidePopup />
+          <p className="text-slate-500">
+            New applicant? <AuthLink to="/signup">Create account</AuthLink>
+          </p>
+        </div>
       }
     >
       

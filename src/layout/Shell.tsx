@@ -54,12 +54,16 @@ function NavIcon({ name }: { name: string }) {
 }
 
 function navItems(auth: ReturnType<typeof useAuth>['auth']) {
+  if (auth?.is_student && auth.nin_verified !== true) {
+    return [{ to: '/verify-nin', label: 'Verify NIN', icon: 'apply', show: true }];
+  }
   const items = [
     { to: '/', label: 'Home', icon: 'home', show: true },
     { to: '/apply', label: 'Apply', icon: 'apply', show: !auth?.is_student },
-    { to: '/wizard', label: 'Application form', icon: 'wizard', show: auth?.portal_access && !auth?.is_student && ['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '') },
-    { to: '/status', label: hasPendingAdmissionOffer(auth) ? 'Accept offer' : 'Status', icon: 'status', show: !auth?.is_student && !!auth?.lifecycle_stage && auth.lifecycle_stage !== 'started' },
+    { to: '/wizard', label: 'Application form', icon: 'wizard', show: !auth?.is_student && !!auth?.portal_access && ['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '') },
+    { to: '/status', label: hasPendingAdmissionOffer(auth) ? 'Accept offer' : 'Status', icon: 'status', show: !!auth?.lifecycle_stage && auth.lifecycle_stage !== 'started' && auth.lifecycle_stage !== 'matriculated' },
     { to: '/invoices', label: 'Transaction history', icon: 'invoices', show: true },
+    { to: '/finance-status', label: 'Financial status', icon: 'invoices', show: !!auth?.is_student },
     { to: '/profile', label: 'My record', icon: 'profile', show: !!auth?.is_student },
     { to: '/wallet', label: 'Wallet', icon: 'wallet', show: !!auth?.is_student },
     { to: '/clinic', label: 'Clinic', icon: 'clinic', show: !!auth?.is_student },
@@ -75,9 +79,11 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/apply': 'Apply for admission',
+  '/verify-nin': 'Verify NIN',
   '/wizard': 'Application form',
   '/status': 'Application status',
   '/invoices': 'Transaction history',
+  '/finance-status': 'Financial status',
   '/profile': 'My record',
   '/change-password': 'Change password',
   '/wallet': 'Wallet',

@@ -10,6 +10,7 @@ import { Alert, Card } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
+import AdmissionGuidePopup from '../components/AdmissionGuidePopup';
 
 type Stat = {
   label: string;
@@ -58,6 +59,7 @@ const APPLICATION_QUICK_LINKS = [
 const STUDENT_QUICK_LINKS = [
   { to: '/course-registration', label: 'Course registration', desc: 'Add & drop courses', area: 'Registration' as const },
   { to: '/wallet', label: 'Wallet', desc: 'Top up & pay', area: 'Registration' as const },
+  { to: '/finance-status', label: 'Financial status', desc: 'Billed, paid & outstanding', area: 'Registration' as const },
   { to: '/academic', label: 'Academic', desc: 'Results & clearance', area: 'Registration' as const },
   { to: '/invoices', label: 'Transactions', desc: 'Fees & receipts', area: 'Registration' as const },
   { to: '/clinic', label: 'Clinic', desc: 'Health records', area: 'Registration' as const },
@@ -184,6 +186,7 @@ export default function Home() {
     return (
       <div className="space-y-6">
         <StudentIdentityCard />
+        <AdmissionGuidePopup trigger="card" />
         <QuickLinks links={STUDENT_QUICK_LINKS} />
       </div>
     );
@@ -290,6 +293,7 @@ export default function Home() {
       </Card>
 
       <QuickLinks links={APPLICATION_QUICK_LINKS} />
+      <AdmissionGuidePopup trigger="card" />
 
       {notices.length > 0 && (
         <div>

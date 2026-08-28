@@ -7,12 +7,6 @@ import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
 
-const COURSE_BUCKETS = [
-  { value: 'general', label: 'General' },
-  { value: 'faculty', label: 'Faculty' },
-  { value: 'departmental', label: 'Departmental' },
-];
-
 function courseStatusLabel(value?: string) {
   if (value === 'elective') return 'Elective';
   if (value === 'required') return 'Required';
@@ -22,6 +16,10 @@ function courseStatusLabel(value?: string) {
 
 function isCarryOverRow(row: any) {
   return Boolean(row?.is_carry_over);
+}
+
+function isOutstandingRow(row: any) {
+  return Boolean(row?.is_outstanding) && !isCarryOverRow(row);
 }
 
 function isDefaultSelected(row: any) {
@@ -39,36 +37,6 @@ function printTermKey(term: { academic_session_id?: number | null; session_label
 }
 
 const selectClass = 'w-full min-w-0 sm:w-auto sm:min-w-[10rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800';
-
-function courseUnits(row: any) {
-  return Number(row?.course?.units || row?.offering?.course?.units || 0);
-}
-
-function courseBucket(row: any): 'general' | 'faculty' | 'departmental' {
-  const value = row?.bucket || row?.course?.course_type || row?.offering?.course?.course_type || 'departmental';
-  if (value === 'general' || value === 'faculty') return value;
-  return 'departmental';
-}
-
-function addSelectionUnits(base: Record<string, number>, rows: any[]) {
-  const next = {
-    general: Number(base.general || 0),
-    faculty: Number(base.faculty || 0),
-    departmental: Number(base.departmental || 0),
-    overall: Number(base.overall || 0),
-  };
-  for (const row of rows) {
-    const units = courseUnits(row);
-    const bucket = courseBucket(row);
-    if (bucket === 'general' || bucket === 'faculty' || bucket === 'departmental') {
-      next[bucket] += units;
-    } else {
-      next.departmental += units;
-    }
-    next.overall += units;
-  }
-  return next;
-}
 
 function apiErrorMessage(e: any, fallback: string) {
   let data = e?.response?.data;
@@ -217,7 +185,7 @@ export default function CourseRegistration() {
   };
 
   const toggleCourse = (row: any) => {
-    if (isCarryOverRow(row)) return;
+    if (isCarryOverRow(row) && !reg?.can_uncheck_carry_over) return;
     setSelectedIds((current) => (
       current.includes(row.id) ? current.filter((id) => id !== row.id) : [...current, row.id]
     ));
@@ -280,6 +248,10 @@ export default function CourseRegistration() {
   const extension = reg?.extension;
   const paidExtension = extension?.status === 'paid';
   const canMutate = !!reg?.can_self_register;
+  const canUncheckCarryOver = !!reg?.can_uncheck_carry_over;
+  const canRequestExtension = !!reg?.can_request_extension;
+  const hasCarryOverChoice = (reg?.carry_overs || []).length > 0
+    || (reg?.available || []).some((row: any) => row.is_carry_over);
   const blockReason = !canMutate
     ? (reg?.cannot_register_reason || 'Add and drop are unavailable until course registration opens for you.')
     : null;
@@ -288,12 +260,14 @@ export default function CourseRegistration() {
     if (carry !== 0) return carry;
     return String(a.offering?.course?.code || '').localeCompare(String(b.offering?.course?.code || ''));
   });
-  const available = [...(reg?.available || [])].sort((a: any, b: any) => (
-    String(a.course?.code || '').localeCompare(String(b.course?.code || ''))
-  ));
+  const available = [...(reg?.available || [])].sort((a: any, b: any) => {
+    const carry = Number(!!b.is_carry_over) - Number(!!a.is_carry_over);
+    if (carry !== 0) return carry;
+    const outstanding = Number(!!b.is_outstanding) - Number(!!a.is_outstanding);
+    if (outstanding !== 0) return outstanding;
+    return String(a.course?.code || '').localeCompare(String(b.course?.code || ''));
+  });
   const termLabel = reg?.term?.name ? `${reg.term.session_label || ''} ${reg.term.name}`.trim() : 'Current semester';
-  const selectedRows = available.filter((row: any) => selectedIds.includes(row.id));
-  const projectedUnits = addSelectionUnits(reg?.units || {}, selectedRows);
   const submitting = busyId === 'register';
   const printTerms = Array.isArray(reg?.print_terms) ? reg.print_terms : [];
   const printSessions: { key: string; label: string }[] = [];
@@ -363,7 +337,7 @@ export default function CourseRegistration() {
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Course registration' }]} />
         <PageHeader
           title="Course registration"
-          description="Tick the courses you will take this semester, check your unit totals, then submit once. Print a copy of your registered courses for any session or semester you have already registered."
+          description="Tick the courses you will take this semester, then submit once. Print a copy of your registered courses for any session or semester you have already registered."
           action={(
             <div className="flex flex-wrap gap-2">
               {canPrint && (
@@ -409,10 +383,13 @@ export default function CourseRegistration() {
 
           <div className="space-y-4 text-sm">
             {windowStatus === 'Open' && canMutate && (
-              <Alert tone="info">Registration is open. Tick your courses, review the unit checklist, then use Register to submit your choice.</Alert>
+              <Alert tone="info">Registration is open. Tick your courses, then use Register to submit your choice.</Alert>
             )}
-            {windowStatus === 'Late' && !paidExtension && (
+            {windowStatus === 'Late' && !paidExtension && canRequestExtension && (
               <Alert tone="warning">The open window has closed. Request an extension, pay the invoice, then register until late registration closes.</Alert>
+            )}
+            {windowStatus === 'Late' && !paidExtension && !canRequestExtension && (
+              <Alert tone="warning">The open window has closed. Only final-year students may request an extension. Contact academic staff if you still need changes.</Alert>
             )}
             {windowStatus === 'Late' && paidExtension && (
               <Alert tone="success">
@@ -432,36 +409,12 @@ export default function CourseRegistration() {
               <Alert tone="warning">{blockReason}</Alert>
             )}
 
-            <div>
-              <h3 className="font-medium text-slate-800 mb-2">Unit checklist</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[...COURSE_BUCKETS, { value: 'overall', label: 'Overall' }].map((bucket) => {
-                  const limit = reg.limits?.[bucket.value] || {};
-                  const enrolled = Number(reg.units?.[bucket.value] ?? 0);
-                  const projected = Number(projectedUnits[bucket.value as keyof typeof projectedUnits] ?? enrolled);
-                  const min = limit.min;
-                  const max = limit.max;
-                  const overMax = max != null && projected > max;
-                  const underMin = min != null && projected > 0 && projected < min;
-                  return (
-                    <div key={bucket.value} className={`rounded-lg border px-3 py-2 ${overMax ? 'border-amber-300 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
-                      <p className="text-[11px] uppercase tracking-wide text-slate-500">{bucket.label}</p>
-                      <p className="font-semibold text-slate-800">{projected} / {max ?? '—'} units</p>
-                      <p className="text-xs text-slate-500">
-                        {enrolled} registered{selectedRows.length ? ` · ${projected - enrolled} selected` : ''}
-                        {min != null ? ` · Min ${min}` : ''}
-                        {limit.grace ? ` · grace +${limit.grace}` : ''}
-                      </p>
-                      {overMax && <p className="text-[11px] text-amber-800 mt-1">Over the maximum.</p>}
-                      {underMin && !overMax && <p className="text-[11px] text-amber-800 mt-1">Below the minimum.</p>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {(reg.carry_overs || []).length > 0 && (
-              <Alert tone="warning">Carry-over courses are already on your registered list and cannot be dropped.</Alert>
+            {hasCarryOverChoice && (
+              <Alert tone="warning">
+                {canUncheckCarryOver
+                  ? 'Carry-over courses are included by default. As a final-year student you may uncheck or drop them.'
+                  : 'Carry-over courses are already on your registered list and cannot be dropped.'}
+              </Alert>
             )}
 
             <div>
@@ -501,7 +454,7 @@ export default function CourseRegistration() {
                         </td>
                       </tr>
                     ) : enrollments.map((row: any) => {
-                      const dropBlocked = !canMutate || row.is_carry_over;
+                      const dropBlocked = !canMutate || (row.is_carry_over && !canUncheckCarryOver);
                       const course = row.offering?.course;
                       return (
                         <tr key={row.id} className={trClass}>
@@ -510,14 +463,16 @@ export default function CourseRegistration() {
                           <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(course?.status) || '—'}</td>
                           <td className={`${tdClass} text-center`}>{course?.units ?? 0}</td>
                           <td className={tdClass}>
-                            {row.is_carry_over ? <span className="text-xs font-medium text-amber-700">Carry-over · cannot drop</span> : '—'}
+                            {row.is_carry_over
+                              ? <span className="text-xs font-medium text-amber-700">{canUncheckCarryOver ? 'Carry-over' : 'Carry-over · cannot drop'}</span>
+                              : '—'}
                           </td>
                           {canMutate && (
                             <td className={`${tdClass} text-right`}>
                               <Button
                                 type="button"
                                 disabled={dropBlocked || busyId !== null}
-                                title={row.is_carry_over ? 'Carry-over courses cannot be dropped.' : (blockReason || undefined)}
+                                title={row.is_carry_over && !canUncheckCarryOver ? 'Carry-over courses cannot be dropped.' : (blockReason || undefined)}
                                 className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                                 onClick={() => drop(row.id)}
                               >
@@ -564,7 +519,7 @@ export default function CourseRegistration() {
                       </tr>
                     ) : available.map((row: any) => {
                       const checked = selectedIds.includes(row.id);
-                      const locked = isCarryOverRow(row);
+                      const locked = isCarryOverRow(row) && !canUncheckCarryOver;
                       return (
                         <tr key={row.id} className={trClass}>
                           {canMutate && (
@@ -583,6 +538,8 @@ export default function CourseRegistration() {
                           <td className={tdClass}>
                             {row.course?.title || '—'}
                             {locked ? <span className="block text-[11px] text-amber-700">Carry-over · cannot uncheck</span> : null}
+                            {isCarryOverRow(row) && canUncheckCarryOver ? <span className="block text-[11px] text-amber-700">Carry-over</span> : null}
+                            {isOutstandingRow(row) ? <span className="block text-[11px] text-sky-700">Outstanding</span> : null}
                           </td>
                           <td className={`${tdClass} whitespace-nowrap`}>{courseStatusLabel(row.course?.status) || '—'}</td>
                           <td className={`${tdClass} text-center`}>{row.course?.units ?? 0}</td>
@@ -606,7 +563,7 @@ export default function CourseRegistration() {
               )}
             </div>
 
-            {windowStatus === 'Late' && !paidExtension && (
+            {windowStatus === 'Late' && !paidExtension && canRequestExtension && (
               <div className="space-y-2 rounded-xl border border-slate-200 p-3">
                 {extension?.status === 'pending' && <Alert tone="info">Your extension request is waiting for staff review.</Alert>}
                 {extension?.status === 'approved' && (

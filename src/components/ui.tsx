@@ -61,8 +61,27 @@ export function PasswordInput({ className = '', id, ...props }: Omit<InputHTMLAt
   );
 }
 
-export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
-  return <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700 mb-1.5">{children}</label>;
+export function RequiredMark() {
+  return <span className="ml-0.5 text-rose-600" aria-hidden="true">*</span>;
+}
+
+export function Label({
+  children,
+  htmlFor,
+  required,
+  className = '',
+}: {
+  children: ReactNode;
+  htmlFor?: string;
+  required?: boolean;
+  className?: string;
+}) {
+  return (
+    <label htmlFor={htmlFor} className={`block text-sm font-medium text-slate-700 mb-1.5 ${className}`}>
+      {children}
+      {required ? <RequiredMark /> : null}
+    </label>
+  );
 }
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {

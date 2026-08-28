@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, Navigate } from 'react-router-dom';
 import api from '../api';
@@ -100,6 +100,18 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+function apiErrorMessage(e: any, fallback: string) {
+  let data = e?.response?.data;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      return fallback;
+    }
+  }
+  return data?.message || data?.errors?.allocation?.[0] || fallback;
+}
+
 function BuildingIcon({ className = 'h-7 w-7' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -121,6 +133,10 @@ export default function Hostel() {
   const [selectedHostelId, setSelectedHostelId] = useState<number | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  const [printHtml, setPrintHtml] = useState<string | null>(null);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
+  const printRequestRef = useRef(0);
 
   const load = () => {
     setLoading(true);
@@ -136,20 +152,20 @@ export default function Hostel() {
   }, [auth?.is_student]);
 
   useEffect(() => {
-    if (!selectOpen) return;
+    if (!selectOpen && !printOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !selecting) {
-        closeSelectModal();
-      }
+      if (e.key !== 'Escape') return;
+      if (printOpen && !printLoading) closePrint();
+      else if (selectOpen && !selecting) closeSelectModal();
     };
     document.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKey);
     };
-  }, [selectOpen, selecting]);
+  }, [selectOpen, selecting, printOpen, printLoading]);
 
   const hostels = data?.hostels || [];
   const selectedHostel = hostels.find((hostel: any) => hostel.id === selectedHostelId) || null;
@@ -173,6 +189,50 @@ export default function Hostel() {
     setSelectedHostelId(null);
     setSelectedBlockId(null);
     setSelectedRoomId(null);
+  };
+
+  const fetchPrint = async () => {
+    const requestId = ++printRequestRef.current;
+    setPrintLoading(true);
+    try {
+      const { data } = await api.get('/api/me/hostel/print', { responseType: 'text' });
+      if (requestId !== printRequestRef.current) return;
+      setPrintHtml(data);
+    } catch (e: any) {
+      if (requestId !== printRequestRef.current) return;
+      toast.error(apiErrorMessage(e, 'Could not open the hostel registration form.'));
+      setPrintOpen(false);
+    } finally {
+      if (requestId === printRequestRef.current) setPrintLoading(false);
+    }
+  };
+
+  const openPrint = () => {
+    setPrintOpen(true);
+    void fetchPrint();
+  };
+
+  const closePrint = () => {
+    if (printLoading) return;
+    setPrintOpen(false);
+    setPrintHtml(null);
+  };
+
+  const printCurrent = () => {
+    const frame = document.getElementById('hostel-print-frame') as HTMLIFrameElement | null;
+    frame?.contentWindow?.focus();
+    frame?.contentWindow?.print();
+  };
+
+  const downloadCurrent = () => {
+    if (!printHtml) return;
+    const blob = new Blob([printHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'hostel-registration.html';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!auth?.is_student) return <Navigate to="/" replace />;
@@ -205,6 +265,7 @@ export default function Hostel() {
   const history = data?.history || [];
   const invoices = data?.invoices || [];
   const canSelect = !!data?.can_select;
+  const canPrint = ['allocated', 'pending'].includes(String(allocation?.status || ''));
   const windowOpen = !!data?.window_open;
   const tuitionOk = data?.tuition_ok !== false;
   const tuitionPercent = Number(data?.tuition_percent ?? 0);
@@ -243,16 +304,29 @@ export default function Hostel() {
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Hostel' }]} />
         <PageHeader
           title="My hostel"
-          description="View your room allocation, request a bed when the window is open, and track hostel invoices."
+          description="View your room allocation, print your hostel registration form, request a bed when the window is open, and track hostel invoices."
           action={
-            canSelect ? (
-              <Button
-                type="button"
-                onClick={openSelectModal}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-              >
-                Request a bed
-              </Button>
+            (canSelect || canPrint) ? (
+              <div className="flex flex-col sm:flex-row gap-2">
+                {canPrint && (
+                  <Button
+                    type="button"
+                    onClick={openPrint}
+                    className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+                  >
+                    Print registration form
+                  </Button>
+                )}
+                {canSelect && (
+                  <Button
+                    type="button"
+                    onClick={openSelectModal}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                  >
+                    Request a bed
+                  </Button>
+                )}
+              </div>
             ) : undefined
           }
         />
@@ -282,6 +356,17 @@ export default function Hostel() {
                 <p className="mt-2 text-xs text-indigo-100/90">
                   {allocation.hostel_name} · Block {allocation.block_name || '—'} · Room {allocation.room_number || '—'} · Bed {allocation.bed_label || '—'}
                 </p>
+              )}
+              {canPrint && (
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    onClick={openPrint}
+                    className="w-full sm:w-auto bg-white text-slate-900 hover:bg-slate-100 shadow-sm"
+                  >
+                    Print registration form
+                  </Button>
+                </div>
               )}
               {canSelect && (
                 <div className="mt-4">
@@ -316,7 +401,21 @@ export default function Hostel() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-        <Section title="Current allocation" description={allocation?.status === 'pending' ? 'This bed is reserved until staff approve or reject your request.' : 'Your room and bed for this session.'}>
+        <Section
+          title="Current allocation"
+          description={allocation?.status === 'pending' ? 'This bed is reserved until staff approve or reject your request.' : 'Your room and bed for this session.'}
+          action={
+            canPrint ? (
+              <Button
+                type="button"
+                onClick={openPrint}
+                className="text-sky-700 hover:text-sky-800 bg-transparent px-0 min-h-0 py-0"
+              >
+                Print form
+              </Button>
+            ) : undefined
+          }
+        >
           {allocation ? (
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Hostel" value={allocation.hostel_name} />
@@ -604,6 +703,58 @@ export default function Hostel() {
                   {selecting ? <Spinner label="Submitting…" className="text-white" /> : pickedBed ? `Request bed ${pickedBed.label}` : 'Request bed'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {printOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          onClick={() => !printLoading && closePrint()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Hostel registration form"
+        >
+          <div
+            className="w-full max-w-4xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Document</p>
+                <h3 className="font-semibold text-slate-900 truncate">Hostel registration form</h3>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
+                {printHtml && (
+                  <>
+                    <button type="button" onClick={printCurrent} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      Print
+                    </button>
+                    <button type="button" onClick={downloadCurrent} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      Download
+                    </button>
+                  </>
+                )}
+                <button type="button" onClick={closePrint} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-100">
+              {printLoading || !printHtml ? (
+                <div className="flex items-center justify-center py-24 text-slate-500">
+                  <Spinner label="Loading document…" />
+                </div>
+              ) : (
+                <iframe
+                  id="hostel-print-frame"
+                  title="Hostel registration form"
+                  srcDoc={printHtml}
+                  className="w-full h-[min(60dvh,720px)] sm:h-[min(70vh,720px)] border-0 bg-white"
+                />
+              )}
             </div>
           </div>
         </div>,

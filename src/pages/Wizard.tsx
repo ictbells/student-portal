@@ -5,12 +5,38 @@ import { useAuth } from '../auth';
 import { DocumentPreviewThumb } from '../components/DocumentPreviewThumb';
 import { Breadcrumb, FormSection, PageHeader, StepIndicator } from '../components/portal';
 import { useToast } from '../components/toast';
-import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
+import { SearchableSelect } from '../components/SearchableSelect';
+import { Alert, Button, Card, Input, Label, RequiredMark, Spinner } from '../components/ui';
 import { storageUrl } from '../lib/storage';
+import { isValidPhone, PHONE_ERROR, PHONE_HINT } from '../lib/phone';
 import { requiredDocumentsFor } from '../constants/requiredDocuments';
 
 const OLEVEL_GRADES = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
 const OLEVEL_SUBJECT_CAP = 9;
+
+function countWords(text?: string) {
+  const trimmed = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).filter(Boolean).length;
+}
+
+function wordLimitHint(count: number, min: number, max: number) {
+  const parts: string[] = [`${count} word${count === 1 ? '' : 's'}`];
+  if (min > 0) parts.push(`min ${min}`);
+  if (max > 0) parts.push(`max ${max}`);
+  return parts.join(' · ');
+}
+
+function wordLimitError(label: string, count: number, min: number, max: number) {
+  if (count === 0) return null;
+  if (min > 0 && count < min) return `${label} must be at least ${min} words (currently ${count}).`;
+  if (max > 0 && count > max) return `${label} must be at most ${max} words (currently ${count}).`;
+  return null;
+}
+
+function wordLimitClass(count: number, min: number, max: number) {
+  return wordLimitError('', count, min, max) ? 'mt-1 text-xs text-rose-700' : 'mt-1 text-xs text-slate-500';
+}
 
 type OlevelResult = { subject_id: number; subject_name: string; grade: string };
 type OlevelSubject = { id: number; name: string; code?: string };
@@ -59,8 +85,8 @@ function wizardSteps(entryMode?: string) {
   return list;
 }
 
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const GENOTYPES = ['AA', 'AS', 'AC', 'SS', 'SC', 'CC'];
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Other'];
+const GENOTYPES = ['AA', 'AS', 'AC', 'SS', 'SC', 'CC', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed', 'Separated'];
 const RELIGIONS = ['Christianity', 'Islam', 'Traditional', 'Other'];
 const RELATIONSHIPS = ['Father', 'Mother', 'Guardian', 'Spouse', 'Sibling', 'Uncle', 'Aunt', 'Other'];
@@ -79,24 +105,16 @@ function emptySitting(): OlevelSitting {
   return { exam_type: '', exam_center: '', exam_year: '', exam_number: '', results: [{ subject_id: 0, subject_name: '', grade: '' }] };
 }
 
-type UtmeChoice = { choice_order: number; institution_name: string; programme_name: string };
 type UtmeRow = { subject: string; score: string };
 type UtmeForm = {
   aggregate: string;
-  course_choice: string;
   exam_year: string;
   subjects: UtmeRow[];
-  institution_choices: UtmeChoice[];
 };
-
-function emptyUtmeChoices(): UtmeChoice[] {
-  return [1, 2].map((order) => ({ choice_order: order, institution_name: '', programme_name: '' }));
-}
 
 function emptyUtme(): UtmeForm {
   return {
     aggregate: '',
-    course_choice: '',
     exam_year: '',
     subjects: [
       { subject: '', score: '' },
@@ -104,22 +122,6 @@ function emptyUtme(): UtmeForm {
       { subject: '', score: '' },
       { subject: '', score: '' },
     ],
-    institution_choices: emptyUtmeChoices(),
-  };
-}
-
-function catalogueProgramLabel(p: { name?: string; code?: string | null }) {
-  if (!p?.name) return '';
-  return p.code ? `${p.name} (${p.code})` : p.name;
-}
-
-function withDefaultFirstInstitution(utme: UtmeForm, universityName?: string): UtmeForm {
-  if (!universityName || utme.institution_choices[0]?.institution_name) return utme;
-  return {
-    ...utme,
-    institution_choices: utme.institution_choices.map((row, index) => (
-      index === 0 ? { ...row, institution_name: universityName } : row
-    )),
   };
 }
 
@@ -134,37 +136,31 @@ function asUtme(raw: any, fallback?: any): UtmeForm {
       score: row.score != null ? String(row.score) : '',
     }));
   while (subjects.length < 4) subjects.push({ subject: '', score: '' });
-  const choices: UtmeChoice[] = Array.isArray(source.institution_choices) && source.institution_choices.length
-    ? source.institution_choices.map((row: any, index: number) => ({
-        choice_order: Number(row.choice_order || index + 1),
-        institution_name: row.institution_name || '',
-        programme_name: row.programme_name || '',
-      }))
-    : emptyUtmeChoices();
-  while (choices.length < 2) {
-    choices.push({ choice_order: choices.length + 1, institution_name: '', programme_name: '' });
-  }
   return {
     aggregate: source.aggregate != null && source.aggregate !== '' ? String(source.aggregate) : '',
-    course_choice: source.course_choice || '',
     exam_year: source.exam_year != null && source.exam_year !== '' ? String(source.exam_year) : '',
     subjects,
-    institution_choices: choices.slice(0, 2),
   };
+}
+
+function utmeSubjectTotal(utme: UtmeForm): number {
+  return utme.subjects.reduce((sum, row) => sum + (Number(row.score) || 0), 0);
+}
+
+function utmeAggregateMatches(utme: UtmeForm): boolean {
+  const aggregate = Number(utme.aggregate);
+  if (!Number.isFinite(aggregate) || utme.subjects.some((row) => String(row.score).trim() === '' || !Number.isFinite(Number(row.score)))) {
+    return false;
+  }
+  return Math.abs(utmeSubjectTotal(utme) - aggregate) < 0.005;
 }
 
 function utmeForSave(utme: any) {
   if (!utme || typeof utme !== 'object') return null;
-  const subjects = (utme.subjects || []).filter((row: any) => row.subject || row.score);
-  const institution_choices = (utme.institution_choices || [])
-    .map((row: any, index: number) => ({
-      choice_order: Number(row.choice_order || index + 1),
-      institution_name: row.institution_name || '',
-      programme_name: row.programme_name || '',
-    }))
-    .filter((row: UtmeChoice) => row.institution_name || row.programme_name);
-  if (!utme.aggregate && !utme.course_choice && !utme.exam_year && subjects.length === 0 && institution_choices.length === 0) return null;
-  return { ...utme, subjects, institution_choices };
+  const normalized = asUtme(utme);
+  const subjects = normalized.subjects.filter((row) => row.subject || row.score);
+  if (!normalized.aggregate && !normalized.exam_year && subjects.length === 0) return null;
+  return { aggregate: normalized.aggregate, exam_year: normalized.exam_year, subjects };
 }
 
 const DE_QUALIFICATION_TYPES = [
@@ -290,14 +286,12 @@ function departmentIdOf(program: any): number | '' {
   return id ? Number(id) : '';
 }
 
-function uniqueNamedOptions(items: { value: number; label: string }[]) {
-  const map = new Map<number, string>();
-  items.forEach(({ value, label }) => {
-    if (value && label) map.set(value, label);
-  });
-  return [...map.entries()]
-    .map(([value, label]) => ({ value, label }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+function collegeNameOf(program: any): string {
+  return program?.department?.faculty?.name || '';
+}
+
+function departmentNameOf(program: any): string {
+  return program?.department?.name || '';
 }
 
 function withProgrammeChoiceIds(raw: any, programList: any[]) {
@@ -307,11 +301,11 @@ function withProgrammeChoiceIds(raw: any, programList: any[]) {
   return {
     ...raw,
     first_choice_program_id: firstId,
-    first_choice_college_id: raw?.first_choice_college_id || facultyIdOf(first) || '',
-    first_choice_department_id: raw?.first_choice_department_id || departmentIdOf(first) || '',
+    first_choice_college_id: facultyIdOf(first) || raw?.first_choice_college_id || '',
+    first_choice_department_id: departmentIdOf(first) || raw?.first_choice_department_id || '',
     second_choice_program_id: raw?.second_choice_program_id || '',
-    second_choice_college_id: raw?.second_choice_college_id || facultyIdOf(second) || '',
-    second_choice_department_id: raw?.second_choice_department_id || departmentIdOf(second) || '',
+    second_choice_college_id: facultyIdOf(second) || raw?.second_choice_college_id || '',
+    second_choice_department_id: departmentIdOf(second) || raw?.second_choice_department_id || '',
   };
 }
 
@@ -326,7 +320,6 @@ export default function Wizard() {
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [programs, setPrograms] = useState<any[]>([]);
-  const [colleges, setColleges] = useState<any[]>([]);
   const [olevelSubjects, setOlevelSubjects] = useState<OlevelSubject[]>([]);
   const [candidateUtme, setCandidateUtme] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -337,6 +330,7 @@ export default function Wizard() {
   const [loadingLgas, setLoadingLgas] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const [supervisors, setSupervisors] = useState<any[]>([]);
+  const [submitAcknowledged, setSubmitAcknowledged] = useState(false);
   const steps = wizardSteps(app?.entry_mode);
 
   const ninVerified = useMemo(() => !!biodataPayload(app).nin_locked, [app]);
@@ -358,10 +352,14 @@ export default function Wizard() {
       stepPayload = normalizeAcademicPayload(stepPayload);
     }
     if (activeKey === 'utme') {
-      stepPayload = { utme: withDefaultFirstInstitution(asUtme(stepPayload.utme, candidateUtme), auth?.university?.name) };
+      stepPayload = { utme: asUtme(stepPayload.utme, candidateUtme) };
     }
-    if (activeKey === 'application_form' && !stepPayload.phone && auth?.user?.phone) {
-      stepPayload = { ...stepPayload, phone: auth.user.phone };
+    if (activeKey === 'application_form') {
+      stepPayload = {
+        ...stepPayload,
+        phone: stepPayload.phone || auth?.user?.phone || '',
+        alternate_phone: stepPayload.alternate_phone || auth?.user?.alternate_phone || '',
+      };
     }
     if (activeKey === 'personal_details' && !stepPayload.country) {
       stepPayload = { ...stepPayload, country: 'Nigeria' };
@@ -382,7 +380,9 @@ export default function Wizard() {
         if (id) await load(id);
         else {
           const r = await api.get('/api/applications');
-          const first = r.data.data?.[0];
+          const rows = Array.isArray(r.data?.data) ? r.data.data : (Array.isArray(r.data) ? r.data : []);
+          const inProgress = rows.find((row: { stage?: string }) => ['fee_paid', 'form_in_progress'].includes(row.stage || ''));
+          const first = inProgress || rows[0];
           if (first) await load(first.id);
         }
       } finally {
@@ -407,19 +407,12 @@ export default function Wizard() {
     if (steps[idx]?.key !== 'utme' || !candidateUtme) return;
     setPayload((prev: any) => {
       const current = prev.utme;
-      const filled = current?.aggregate || current?.course_choice || current?.exam_year
-        || current?.subjects?.some((row: any) => row.subject || row.score)
-        || current?.institution_choices?.some((row: any) => row.institution_name || row.programme_name);
+      const filled = current?.aggregate || current?.exam_year
+        || current?.subjects?.some((row: any) => row.subject || row.score);
       if (filled) return prev;
-      return { ...prev, utme: withDefaultFirstInstitution(asUtme(null, candidateUtme), auth?.university?.name) };
+      return { ...prev, utme: asUtme(null, candidateUtme) };
     });
   }, [candidateUtme, idx, auth?.university?.name]);
-
-  useEffect(() => {
-    api.get('/api/colleges')
-      .then((r) => setColleges(Array.isArray(r.data) ? r.data : r.data?.data ?? []))
-      .catch(() => setColleges([]));
-  }, []);
 
   useEffect(() => {
     if (!app?.entry_mode) return;
@@ -465,20 +458,6 @@ export default function Wizard() {
     return () => document.removeEventListener('keydown', onKey);
   }, [printHtml]);
 
-  const collegeOptions = useMemo(
-    () => uniqueNamedOptions([
-      ...colleges.map((c) => ({
-        value: Number(c.id || 0),
-        label: c.name || '',
-      })),
-      ...programs.map((p) => ({
-        value: Number(facultyIdOf(p) || 0),
-        label: p.department?.faculty?.name || '',
-      })),
-    ]),
-    [colleges, programs],
-  );
-
   const applyStepPayload = (appData: any, stepIndex: number) => {
     let nextPayload = appData.steps?.find((x: any) => x.step_key === steps[stepIndex].key)?.payload || {};
     if (steps[stepIndex].key === 'academic_qualifications') {
@@ -486,10 +465,14 @@ export default function Wizard() {
     }
     if (steps[stepIndex].key === 'utme') {
       const academicUtme = appData.steps?.find((x: any) => x.step_key === 'academic_qualifications')?.payload?.utme;
-      nextPayload = { utme: withDefaultFirstInstitution(asUtme(nextPayload.utme, academicUtme || candidateUtme), auth?.university?.name) };
+      nextPayload = { utme: asUtme(nextPayload.utme, academicUtme || candidateUtme) };
     }
-    if (steps[stepIndex].key === 'application_form' && !nextPayload.phone && auth?.user?.phone) {
-      nextPayload = { ...nextPayload, phone: auth.user.phone };
+    if (steps[stepIndex].key === 'application_form') {
+      nextPayload = {
+        ...nextPayload,
+        phone: nextPayload.phone || auth?.user?.phone || '',
+        alternate_phone: nextPayload.alternate_phone || auth?.user?.alternate_phone || '',
+      };
     }
     if (steps[stepIndex].key === 'personal_details' && !nextPayload.country) {
       nextPayload = { ...nextPayload, country: 'Nigeria' };
@@ -547,9 +530,37 @@ export default function Wizard() {
   };
 
   const save = async () => {
+    if (steps[idx].key === 'utme' && !utmeAggregateMatches(asUtme(payload.utme))) {
+      const total = utmeSubjectTotal(asUtme(payload.utme));
+      toast.error(`The four subject scores total ${total}, which must match the aggregate.`);
+      return;
+    }
+    if (steps[idx].key === 'application_form' && !isValidPhone(payload.alternate_phone)) {
+      toast.error(PHONE_ERROR);
+      return;
+    }
     if (steps[idx].key === 'programme_selection' && !Number(payload.first_choice_program_id)) {
       toast.error('Select a first-choice programme before continuing.');
       return;
+    }
+    if (steps[idx].key === 'pg_research') {
+      const limits = app?.pg_word_limits || {};
+      const researchError = wordLimitError(
+        'Research interest',
+        countWords(payload.research_interest),
+        Number(limits.pg_research_interest_min_words || 0),
+        Number(limits.pg_research_interest_max_words || 0),
+      );
+      const purposeError = wordLimitError(
+        'Statement of purpose',
+        countWords(payload.statement_of_purpose),
+        Number(limits.pg_statement_of_purpose_min_words || 0),
+        Number(limits.pg_statement_of_purpose_max_words || 0),
+      );
+      if (researchError || purposeError) {
+        toast.error(researchError || purposeError || '');
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -565,20 +576,23 @@ export default function Wizard() {
         };
         body = {
           first_sitting: cleanSitting(payload.first_sitting),
-          second_sitting: cleanSitting(payload.second_sitting),
+          second_sitting: payload.first_sitting?.exam_type === 'NABTEB' ? null : cleanSitting(payload.second_sitting),
           other_qualifications: payload.other_qualifications || '',
         };
       }
       if (steps[idx].key === 'programme_selection') {
-        const firstId = Number(payload.first_choice_program_id);
-        const secondId = Number(payload.second_choice_program_id);
+        const first = programs.find((p: any) => p.id === Number(payload.first_choice_program_id));
+        const second = programs.find((p: any) => p.id === Number(payload.second_choice_program_id));
+        const firstId = Number(first?.id || payload.first_choice_program_id);
+        const secondId = Number(second?.id || 0);
+        const allowSecond = app.entry_mode !== 'jupeb';
         body = {
-          first_choice_college_id: Number(payload.first_choice_college_id) || null,
-          first_choice_department_id: Number(payload.first_choice_department_id) || null,
+          first_choice_college_id: facultyIdOf(first) || null,
+          first_choice_department_id: departmentIdOf(first) || null,
           first_choice_program_id: firstId,
-          second_choice_college_id: Number(payload.second_choice_college_id) || null,
-          second_choice_department_id: Number(payload.second_choice_department_id) || null,
-          second_choice_program_id: Number.isFinite(secondId) && secondId > 0 ? secondId : null,
+          second_choice_college_id: allowSecond ? (facultyIdOf(second) || null) : null,
+          second_choice_department_id: allowSecond ? (departmentIdOf(second) || null) : null,
+          second_choice_program_id: allowSecond && Number.isFinite(secondId) && secondId > 0 ? secondId : null,
           program_id: firstId,
         };
       }
@@ -633,10 +647,18 @@ export default function Wizard() {
       toast.error('Select a programme before submitting your application.');
       return;
     }
+    if (!submitAcknowledged) {
+      toast.error('Confirm the submission notice before submitting your application.');
+      return;
+    }
+    if (app?.application_window_open === false) {
+      toast.error('The application window for this category has closed. You cannot submit your application.');
+      return;
+    }
     setSaving(true);
     try {
       await api.post(`/api/applications/${app.id}/steps`, { step_key: steps[idx].key, payload });
-      const { data } = await api.post(`/api/applications/${app.id}/submit`);
+      const { data } = await api.post(`/api/applications/${app.id}/submit`, { submission_notice_accepted: true });
       setApp(data);
       await refresh();
       toast.success('Application submitted for screening');
@@ -647,6 +669,10 @@ export default function Wizard() {
       setSaving(false);
     }
   };
+
+  if (auth?.is_student) {
+    return <Navigate to={auth.nin_verified ? '/' : '/verify-nin'} replace />;
+  }
 
   if (loading) {
     return (
@@ -670,9 +696,11 @@ export default function Wizard() {
   const bio = biodataPayload(app);
   const passportUrl = storageUrl(bio.photo_path || payload.photo_path) || auth?.nin_identity?.photo_url || null;
   const nyscStatus = app?.steps?.find((s: any) => s.step_key === 'pg_background')?.payload?.nysc_status;
-  const requiredDocs = requiredDocumentsFor(app?.entry_mode, nyscStatus);
+  const requiredDocs = requiredDocumentsFor(app?.entry_mode, nyscStatus)
+    .filter((doc) => !(doc.key === 'olevel_second_sitting' && firstSitting.exam_type === 'NABTEB'));
   const eligibility = app?.eligibility;
   const firstChoiceProgram = programs.find((p: any) => p.id === Number(payload.first_choice_program_id || app.program_id));
+  const secondChoiceProgram = programs.find((p: any) => p.id === Number(payload.second_choice_program_id));
   const selectedProgrammeId = Number(
     step.key === 'programme_selection'
       ? payload.first_choice_program_id
@@ -680,6 +708,7 @@ export default function Wizard() {
   ) || 0;
   const uploadedDocTypes = new Set((app?.documents || []).map((d: any) => d.doc_type));
   const docByType = (key: string) => (app?.documents || []).find((d: any) => d.doc_type === key);
+  const windowOpen = app.application_window_open !== false;
 
   const isStepComplete = (index: number) => {
     const key = steps[index].key;
@@ -691,34 +720,41 @@ export default function Wizard() {
     setPayload((prev: any) => ({ ...prev, [key]: value }));
   };
 
-  const departmentsFor = (collegeId: number | string) => {
-    const id = Number(collegeId);
-    if (!id) return [];
-    const college = colleges.find((c) => Number(c.id) === id);
-    const fromCollege = uniqueNamedOptions(
-      (college?.departments || []).map((d: any) => ({
-        value: Number(d.id || 0),
-        label: d.name || '',
-      })),
-    );
-    if (fromCollege.length) return fromCollege;
-    return uniqueNamedOptions(
-      programs
-        .filter((p) => facultyIdOf(p) === id)
-        .map((p) => ({
-          value: Number(departmentIdOf(p) || 0),
-          label: p.department?.name || '',
-        })),
-    );
-  };
-
-  const programsFor = (departmentId: number | string, excludeId?: number) => {
-    const id = Number(departmentId);
-    if (!id) return [];
-    return programs.filter((p) => departmentIdOf(p) === id && p.id !== excludeId);
-  };
-
   const programOptionLabel = (p: any) => `${p.name}${p.duration_years ? ` (${p.duration_years} years)` : ''}`;
+  const programOptions = (excludeId?: number) => programs
+    .filter((p: any) => p.id !== excludeId)
+    .map((p: any) => ({
+      value: p.id,
+      label: programOptionLabel(p),
+      hint: [collegeNameOf(p), departmentNameOf(p)].filter(Boolean).join(' · '),
+      keywords: [p.name, p.code, collegeNameOf(p), departmentNameOf(p)].filter(Boolean).join(' '),
+    }));
+  const applyProgrammeChoice = (which: 'first' | 'second', programId: number | string | '') => {
+    const program = programs.find((p: any) => p.id === Number(programId));
+    setPayload((prev: any) => {
+      if (which === 'first') {
+        const next: any = {
+          ...prev,
+          first_choice_program_id: program?.id || '',
+          first_choice_college_id: facultyIdOf(program) || '',
+          first_choice_department_id: departmentIdOf(program) || '',
+          program_id: program?.id || '',
+        };
+        if (program && Number(prev.second_choice_program_id) === Number(program.id)) {
+          next.second_choice_program_id = '';
+          next.second_choice_college_id = '';
+          next.second_choice_department_id = '';
+        }
+        return next;
+      }
+      return {
+        ...prev,
+        second_choice_program_id: program?.id || '',
+        second_choice_college_id: facultyIdOf(program) || '',
+        second_choice_department_id: departmentIdOf(program) || '',
+      };
+    });
+  };
   const eligibilityBlock = (p: any) => {
     if (!p?.eligibility) return null;
     const failed = p.eligibility.failed || [];
@@ -738,13 +774,22 @@ export default function Wizard() {
   };
 
   const updateSittingMeta = (sitting: 'first_sitting' | 'second_sitting', field: keyof OlevelSitting, value: string) => {
-    setPayload((prev: any) => ({
-      ...prev,
-      [sitting]: {
-        ...(prev[sitting] || emptySitting()),
-        [field]: value,
-      },
-    }));
+    setPayload((prev: any) => {
+      const next = {
+        ...prev,
+        [sitting]: {
+          ...(prev[sitting] || emptySitting()),
+          [field]: value,
+        },
+      };
+      if (sitting === 'first_sitting' && field === 'exam_type' && value === 'NABTEB') {
+        next.second_sitting = { ...emptySitting(), results: [] };
+      }
+      if (sitting === 'second_sitting' && field === 'exam_type' && value === 'NABTEB') {
+        next.second_sitting = { ...emptySitting(), results: [] };
+      }
+      return next;
+    });
   };
 
   const addOlevelRow = (sitting: 'first_sitting' | 'second_sitting') => {
@@ -804,19 +849,11 @@ export default function Wizard() {
     }));
   };
 
-  const updateUtme = (field: 'aggregate' | 'course_choice' | 'exam_year', value: string) => {
+  const updateUtme = (field: 'aggregate' | 'exam_year', value: string) => {
     setPayload((prev: any) => ({
       ...prev,
       utme: { ...asUtme(prev.utme), [field]: value },
     }));
-  };
-
-  const updateUtmeChoice = (index: number, field: 'institution_name' | 'programme_name', value: string) => {
-    setPayload((prev: any) => {
-      const utme = asUtme(prev.utme);
-      const institution_choices = utme.institution_choices.map((row, i) => i === index ? { ...row, [field]: value } : row);
-      return { ...prev, utme: { ...utme, institution_choices } };
-    });
   };
 
   const updateUtmeSubject = (index: number, field: 'subject' | 'score', value: string) => {
@@ -832,44 +869,55 @@ export default function Wizard() {
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor={`${key}_exam_type`}>Exam type</Label>
+            <Label htmlFor={`${key}_exam_type`} required>Exam type</Label>
             <select id={`${key}_exam_type`} className={selectClass} value={sitting.exam_type || ''} onChange={(e) => updateSittingMeta(key, 'exam_type', e.target.value)}>
               <option value="">Select</option>
-              {OLEVEL_EXAM_TYPES.map((v) => <option key={v} value={v}>{v}</option>)}
+              {(key === 'second_sitting' ? OLEVEL_EXAM_TYPES.filter((v) => v !== 'NABTEB' || sitting.exam_type === 'NABTEB') : OLEVEL_EXAM_TYPES).map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div>
-            <Label htmlFor={`${key}_exam_year`}>Exam year</Label>
+            <Label htmlFor={`${key}_exam_year`} required>Exam year</Label>
             <select id={`${key}_exam_year`} className={selectClass} value={sitting.exam_year || ''} onChange={(e) => updateSittingMeta(key, 'exam_year', e.target.value)}>
               <option value="">Select year</option>
               {OLEVEL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>
-            <Label htmlFor={`${key}_exam_number`}>Exam number</Label>
+            <Label htmlFor={`${key}_exam_number`} required>Exam number</Label>
             <Input id={`${key}_exam_number`} value={sitting.exam_number || ''} onChange={(e) => updateSittingMeta(key, 'exam_number', e.target.value)} placeholder="e.g. 1234567890" />
           </div>
           <div>
-            <Label htmlFor={`${key}_exam_center`}>Exam centre</Label>
+            <Label htmlFor={`${key}_exam_center`} required>Exam centre</Label>
             <Input id={`${key}_exam_center`} value={sitting.exam_center || ''} onChange={(e) => updateSittingMeta(key, 'exam_center', e.target.value)} placeholder="Centre name / town" />
           </div>
         </div>
+        <div className="hidden sm:flex gap-2 px-1">
+          <Label required className="flex-1">Subject</Label>
+          <Label required className="w-28">Grade</Label>
+          <span className="w-[5.5rem]" aria-hidden="true" />
+        </div>
         {(sitting.results || []).map((row, index) => (
           <div key={index} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center p-3 rounded-xl border border-slate-100 bg-slate-50/50">
-            <select className={`${selectClass} flex-1`} value={row.subject_id || ''} onChange={(e) => updateOlevelRow(key, index, 'subject_id', e.target.value)}>
-              <option value="">Select subject</option>
-              {olevelSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <select className={`${selectClass} w-full sm:w-28`} value={row.grade} onChange={(e) => updateOlevelRow(key, index, 'grade', e.target.value)}>
-              <option value="">Grade</option>
-              {OLEVEL_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
+            <div className="w-full sm:flex-1">
+              <Label htmlFor={`${key}_subject_${index}`} required className="sm:hidden">Subject</Label>
+              <select id={`${key}_subject_${index}`} className={`${selectClass} w-full`} value={row.subject_id || ''} onChange={(e) => updateOlevelRow(key, index, 'subject_id', e.target.value)}>
+                <option value="">Select subject</option>
+                {olevelSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="w-full sm:w-28">
+              <Label htmlFor={`${key}_grade_${index}`} required className="sm:hidden">Grade</Label>
+              <select id={`${key}_grade_${index}`} className={`${selectClass} w-full`} value={row.grade} onChange={(e) => updateOlevelRow(key, index, 'grade', e.target.value)}>
+                <option value="">Grade</option>
+                {OLEVEL_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
             <Button type="button" onClick={() => removeOlevelRow(key, index)} className="w-full sm:w-auto text-rose-700 hover:bg-rose-50 shrink-0">Remove</Button>
           </div>
         ))}
         <div className="flex flex-wrap gap-2">
           {(sitting.results || []).length < OLEVEL_SUBJECT_CAP && (
-            <Button type="button" onClick={() => addOlevelRow(key)} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">Add subject</Button>
+            <Button type="button" onClick={() => addOlevelRow(key)} className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm">Add subject</Button>
           )}
           {optional && (
             <Button type="button" onClick={clearSecondSitting} className="text-slate-600 hover:bg-slate-50">Clear second sitting</Button>
@@ -937,7 +985,7 @@ export default function Wizard() {
         <PageHeader
           eyebrow={app.application_number ? `Ref ${app.application_number}` : 'Admissions'}
           title="Application form"
-          description="Complete each section below. Your NIN identity is verified once and locked for the rest of the process."
+          description="Complete each section below. Your NIN identity is verified once and locked for the rest of the process. Required fields are marked with *."
         />
       </div>
 
@@ -970,7 +1018,7 @@ export default function Wizard() {
               <FormSection title="Verify your NIN" description="Enter your 11-digit National Identification Number to retrieve your legal identity.">
                 <form onSubmit={verifyNin} className="space-y-4 max-w-md">
                   <div>
-                    <Label htmlFor="nin">National Identification Number (NIN)</Label>
+                    <Label htmlFor="nin" required>National Identification Number (NIN)</Label>
                     <Input
                       id="nin"
                       inputMode="numeric"
@@ -991,7 +1039,7 @@ export default function Wizard() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {IDENTITY_FIELDS.map((field) => (
                       <div key={field.key}>
-                        <Label htmlFor={field.key}>{field.label}</Label>
+                        <Label htmlFor={field.key} required={field.key !== 'middle_name'}>{field.label}</Label>
                         <Input
                           id={field.key}
                           readOnly
@@ -1011,21 +1059,21 @@ export default function Wizard() {
           <FormSection title="Personal details" description="Additional biodata required for your application file.">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="marital_status">Marital status</Label>
+                <Label htmlFor="marital_status" required>Marital status</Label>
                 <select id="marital_status" className={selectClass} value={payload.marital_status || ''} onChange={(e) => setField('marital_status', e.target.value)}>
                   <option value="">Select</option>
                   {MARITAL_STATUSES.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="religion">Religion</Label>
+                <Label htmlFor="religion" required>Religion</Label>
                 <select id="religion" className={selectClass} value={payload.religion || ''} onChange={(e) => setField('religion', e.target.value)}>
                   <option value="">Select</option>
                   {RELIGIONS.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country" required>Country</Label>
                 <select
                   id="country"
                   className={selectClass}
@@ -1048,7 +1096,7 @@ export default function Wizard() {
                 </select>
               </div>
               <div>
-                <Label htmlFor="state">{payload.country === 'Non-Nigeria' ? 'State / Province' : 'State of origin'}</Label>
+                <Label htmlFor="state" required>{payload.country === 'Non-Nigeria' ? 'State / Province' : 'State of origin'}</Label>
                 {payload.country === 'Nigeria' ? (
                   <select
                     id="state"
@@ -1082,7 +1130,7 @@ export default function Wizard() {
                 )}
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="lga">{payload.country === 'Non-Nigeria' ? 'City / Area' : 'LGA'}</Label>
+                <Label htmlFor="lga" required>{payload.country === 'Non-Nigeria' ? 'City / Area' : 'LGA'}</Label>
                 {payload.country === 'Nigeria' ? (
                   <select
                     id="lga"
@@ -1122,21 +1170,21 @@ export default function Wizard() {
           <FormSection title="Health information" description="Medical details used for campus clinic records.">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="blood_group">Blood group</Label>
+                <Label htmlFor="blood_group" required>Blood group</Label>
                 <select id="blood_group" className={selectClass} value={payload.blood_group || ''} onChange={(e) => setField('blood_group', e.target.value)}>
                   <option value="">Select</option>
                   {BLOOD_GROUPS.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="genotype">Genotype</Label>
+                <Label htmlFor="genotype" required>Genotype</Label>
                 <select id="genotype" className={selectClass} value={payload.genotype || ''} onChange={(e) => setField('genotype', e.target.value)}>
                   <option value="">Select</option>
                   {GENOTYPES.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <Label>Medical condition / disabilities</Label>
+                <Label required>Medical condition / disabilities</Label>
                 <div className="mt-2 flex gap-4 text-sm">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="has_medical_condition" checked={payload.has_medical_condition === true} onChange={() => setField('has_medical_condition', true)} />
@@ -1149,7 +1197,7 @@ export default function Wizard() {
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="medical_condition_details">Health condition details</Label>
+                <Label htmlFor="medical_condition_details" required={payload.has_medical_condition === true}>Health condition details</Label>
                 <textarea
                   id="medical_condition_details"
                   className={selectClass}
@@ -1167,18 +1215,18 @@ export default function Wizard() {
           <FormSection title="Next of kin" description="Primary emergency contact for admissions and campus emergencies.">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="next_of_kin">Name</Label>
+                <Label htmlFor="next_of_kin" required>Name</Label>
                 <Input id="next_of_kin" value={payload.next_of_kin || ''} onChange={(e) => setField('next_of_kin', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="next_of_kin_relationship">Relationship</Label>
+                <Label htmlFor="next_of_kin_relationship" required>Relationship</Label>
                 <select id="next_of_kin_relationship" className={selectClass} value={payload.next_of_kin_relationship || ''} onChange={(e) => setField('next_of_kin_relationship', e.target.value)}>
                   <option value="">Select</option>
                   {RELATIONSHIPS.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="next_of_kin_phone">Phone number</Label>
+                <Label htmlFor="next_of_kin_phone" required>Phone number</Label>
                 <Input id="next_of_kin_phone" type="tel" value={payload.next_of_kin_phone || ''} onChange={(e) => setField('next_of_kin_phone', e.target.value)} />
               </div>
               <div>
@@ -1186,7 +1234,7 @@ export default function Wizard() {
                 <Input id="next_of_kin_email" type="email" value={payload.next_of_kin_email || ''} onChange={(e) => setField('next_of_kin_email', e.target.value)} />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="next_of_kin_address">Address</Label>
+                <Label htmlFor="next_of_kin_address" required>Address</Label>
                 <textarea id="next_of_kin_address" className={selectClass} rows={3} value={payload.next_of_kin_address || ''} onChange={(e) => setField('next_of_kin_address', e.target.value)} />
               </div>
             </div>
@@ -1197,18 +1245,18 @@ export default function Wizard() {
           <FormSection title="Sponsor" description="Person responsible for funding your studies.">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="sponsor_name">Name</Label>
+                <Label htmlFor="sponsor_name" required>Name</Label>
                 <Input id="sponsor_name" value={payload.sponsor_name || ''} onChange={(e) => setField('sponsor_name', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="sponsor_relationship">Relationship</Label>
+                <Label htmlFor="sponsor_relationship" required>Relationship</Label>
                 <select id="sponsor_relationship" className={selectClass} value={payload.sponsor_relationship || ''} onChange={(e) => setField('sponsor_relationship', e.target.value)}>
                   <option value="">Select</option>
                   {RELATIONSHIPS.map((v) => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="sponsor_phone">Phone number</Label>
+                <Label htmlFor="sponsor_phone" required>Phone number</Label>
                 <Input id="sponsor_phone" type="tel" value={payload.sponsor_phone || ''} onChange={(e) => setField('sponsor_phone', e.target.value)} />
               </div>
               <div>
@@ -1216,7 +1264,7 @@ export default function Wizard() {
                 <Input id="sponsor_email" type="email" value={payload.sponsor_email || ''} onChange={(e) => setField('sponsor_email', e.target.value)} />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="sponsor_address">Address</Label>
+                <Label htmlFor="sponsor_address" required>Address</Label>
                 <textarea id="sponsor_address" className={selectClass} rows={3} value={payload.sponsor_address || ''} onChange={(e) => setField('sponsor_address', e.target.value)} />
               </div>
             </div>
@@ -1227,24 +1275,36 @@ export default function Wizard() {
           <FormSection title="Contact & declaration" description="Confirm how we can reach you and accept the declaration.">
             <div className="grid grid-cols-1 gap-4 max-w-xl">
               <div>
-                <Label htmlFor="email_display">Email</Label>
+                <Label htmlFor="email_display" required>Email</Label>
                 <Input id="email_display" readOnly className="bg-slate-50 text-slate-700" value={auth?.user?.email || ''} />
               </div>
               <div>
-                <Label htmlFor="jamb_display">{app?.entry_mode === 'de' ? 'JAMB Direct Entry no.' : 'JAMB registration no.'}</Label>
+                <Label htmlFor="jamb_display" required={app?.entry_mode === 'utme' || app?.entry_mode === 'de'}>{app?.entry_mode === 'de' ? 'JAMB Direct Entry no.' : 'JAMB registration no.'}</Label>
                 <Input id="jamb_display" readOnly className="bg-slate-50 text-slate-700" value={app?.jamb_registration || auth?.user?.jamb_registration || '—'} />
               </div>
               <div>
-                <Label htmlFor="phone">Phone number</Label>
-                <Input id="phone" type="tel" value={payload.phone || auth?.user?.phone || ''} onChange={(e) => setField('phone', e.target.value)} />
+                <Label htmlFor="phone">Phone from NIN</Label>
+                <Input id="phone" type="tel" readOnly className="bg-slate-50 text-slate-700" value={payload.phone || auth?.user?.phone || ''} />
+                <p className="mt-1 text-xs text-slate-500">This number comes from your NIN record and cannot be changed here.</p>
               </div>
               <div>
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="alternate_phone" required>Alternate phone</Label>
+                <Input
+                  id="alternate_phone"
+                  type="tel"
+                  value={payload.alternate_phone || auth?.user?.alternate_phone || ''}
+                  onChange={(e) => setField('alternate_phone', e.target.value)}
+                  placeholder="0803 123 4567 or +1 202 555 0100"
+                />
+                <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
+              </div>
+              <div>
+                <Label htmlFor="address" required>Address</Label>
                 <textarea id="address" className={selectClass} placeholder="Residential address" rows={3} value={payload.address || ''} onChange={(e) => setField('address', e.target.value)} />
               </div>
               <label className="flex gap-3 items-start rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm cursor-pointer">
                 <input type="checkbox" className="mt-0.5" checked={!!payload.declaration} onChange={(e) => setField('declaration', e.target.checked)} />
-                <span>I confirm that all information provided in this application is true and complete.</span>
+                <span>I confirm that all information provided in this application is true and complete.<RequiredMark /></span>
               </label>
             </div>
           </FormSection>
@@ -1253,12 +1313,12 @@ export default function Wizard() {
         {step.key === 'utme' && (
           <FormSection
             title="JAMB / UTME information"
-            description="Enter your UTME year, aggregate, course choice, four subject scores, and both JAMB institution choices. Values from the admission list are filled in when available."
+            description="Enter your UTME year, aggregate, and four subject scores. The four scores must add up to the aggregate. Values from the admission list are filled in when available."
           >
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="utme_exam_year">Examination year</Label>
+                  <Label htmlFor="utme_exam_year" required>Examination year</Label>
                   <select
                     id="utme_exam_year"
                     className={selectClass}
@@ -1270,35 +1330,18 @@ export default function Wizard() {
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="utme_aggregate">Aggregate</Label>
+                  <Label htmlFor="utme_aggregate" required>Aggregate</Label>
                   <Input
                     id="utme_aggregate"
                     value={payload.utme?.aggregate || ''}
                     onChange={(e) => updateUtme('aggregate', e.target.value)}
-                    placeholder="e.g. 248.12"
+                    placeholder="e.g. 248"
                   />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="utme_course_choice">Programme choice (JAMB)</Label>
-                  <select
-                    id="utme_course_choice"
-                    className={selectClass}
-                    value={payload.utme?.course_choice || ''}
-                    onChange={(e) => updateUtme('course_choice', e.target.value)}
-                  >
-                    <option value="">Select programme</option>
-                    {programs.map((p) => (
-                      <option key={p.id} value={p.name}>{catalogueProgramLabel(p)}</option>
-                    ))}
-                    {payload.utme?.course_choice && !programs.some((p) => p.name === payload.utme.course_choice) && (
-                      <option value={payload.utme.course_choice}>{payload.utme.course_choice}</option>
-                    )}
-                  </select>
                 </div>
               </div>
               <div className="space-y-2">
-                <p className="text-sm font-medium text-slate-800">Subject scores</p>
-                <p className="text-xs text-slate-500">Enter all four UTME subjects.</p>
+                <p className="text-sm font-medium text-slate-800">Subject scores<RequiredMark /></p>
+                <p className="text-xs text-slate-500">Enter all four UTME subjects. Scores must total the aggregate.</p>
                 {(asUtme(payload.utme).subjects).map((row: UtmeRow, index: number) => (
                   <div key={index} className="grid grid-cols-[minmax(0,1fr)_5.75rem] gap-2 items-center">
                     <select
@@ -1321,44 +1364,18 @@ export default function Wizard() {
                     />
                   </div>
                 ))}
-              </div>
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-slate-800">JAMB institution choices</p>
-                <p className="text-xs text-slate-500">Enter both institution choices.</p>
-                {(payload.utme?.institution_choices || emptyUtmeChoices()).map((row: UtmeChoice, index: number) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-end">
-                    <div>
-                      <Label>{index === 0 ? 'Choice' : ' '}</Label>
-                      <Input value={String(row.choice_order)} disabled className="bg-slate-50" />
-                    </div>
-                    <div>
-                      {index === 0 && <Label>Institution</Label>}
-                      {index > 0 && <span className="sr-only">Institution</span>}
-                      <Input
-                        value={row.institution_name}
-                        onChange={(e) => updateUtmeChoice(index, 'institution_name', e.target.value)}
-                        placeholder={index === 0 ? 'First choice university' : `${index + 1}${index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} choice`}
-                      />
-                    </div>
-                    <div>
-                      {index === 0 && <Label>Programme</Label>}
-                      {index > 0 && <span className="sr-only">Programme</span>}
-                      <select
-                        className={selectClass}
-                        value={row.programme_name}
-                        onChange={(e) => updateUtmeChoice(index, 'programme_name', e.target.value)}
-                      >
-                        <option value="">Select programme</option>
-                        {programs.map((p) => (
-                          <option key={p.id} value={p.name}>{catalogueProgramLabel(p)}</option>
-                        ))}
-                        {row.programme_name && !programs.some((p) => p.name === row.programme_name) && (
-                          <option value={row.programme_name}>{row.programme_name}</option>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                ))}
+                <p className={`text-xs ${utmeAggregateMatches(asUtme(payload.utme)) ? 'text-emerald-700' : 'text-slate-500'}`}>
+                  Subject total: {utmeSubjectTotal(asUtme(payload.utme))}
+                  {payload.utme?.aggregate !== '' && payload.utme?.aggregate != null
+                    ? ` · aggregate ${payload.utme.aggregate}`
+                    : ''}
+                  {asUtme(payload.utme).subjects.every((row) => String(row.score).trim() !== '')
+                    && payload.utme?.aggregate !== ''
+                    && payload.utme?.aggregate != null
+                    && !utmeAggregateMatches(asUtme(payload.utme))
+                    ? ' — these must match'
+                    : ''}
+                </p>
               </div>
             </div>
           </FormSection>
@@ -1368,7 +1385,9 @@ export default function Wizard() {
           <div className="space-y-6">
             {renderSitting('first_sitting', "O'Level — First sitting", firstSitting)}
 
-            {(secondSitting.results?.length || secondSitting.exam_type || secondSitting.exam_number) ? (
+            {firstSitting.exam_type === 'NABTEB' ? (
+              <p className="text-sm text-slate-500">NABTEB uses one sitting only and cannot be combined with WAEC, NECO, GCE, or another sitting.</p>
+            ) : (secondSitting.results?.length || secondSitting.exam_type || secondSitting.exam_number) ? (
               renderSitting('second_sitting', "O'Level — Second sitting", secondSitting, true)
             ) : (
               <Button type="button" onClick={enableSecondSitting} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
@@ -1403,38 +1422,38 @@ export default function Wizard() {
                 />
               </div>
               <div>
-                <Label htmlFor="previous_institution">Previous institution</Label>
+                <Label htmlFor="previous_institution" required>Previous institution</Label>
                 <Input id="previous_institution" value={payload.previous_institution || ''} onChange={(e) => setField('previous_institution', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="qualification_type">Qualification</Label>
+                <Label htmlFor="qualification_type" required>Qualification</Label>
                 <select id="qualification_type" className={selectClass} value={payload.qualification_type || 'nd'} onChange={(e) => setField('qualification_type', e.target.value)}>
                   {DE_QUALIFICATION_TYPES.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="qualification_title">Qualification title</Label>
+                <Label htmlFor="qualification_title" required>Qualification title</Label>
                 <Input id="qualification_title" value={payload.qualification_title || ''} onChange={(e) => setField('qualification_title', e.target.value)} placeholder="e.g. ND Computer Science" />
               </div>
               <div>
-                <Label htmlFor="qualification_class">Class / grade</Label>
+                <Label htmlFor="qualification_class" required>Class / grade</Label>
                 <select id="qualification_class" className={selectClass} value={payload.qualification_class || 'upper_credit'} onChange={(e) => setField('qualification_class', e.target.value)}>
                   {DE_CLASSIFICATIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="qualification_year">Year awarded</Label>
+                <Label htmlFor="qualification_year" required>Year awarded</Label>
                 <select id="qualification_year" className={selectClass} value={payload.qualification_year || ''} onChange={(e) => setField('qualification_year', e.target.value)}>
                   <option value="">Select year</option>
                   {OLEVEL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="de_programme">Qualifying programme</Label>
+                <Label htmlFor="de_programme" required>Qualifying programme</Label>
                 <Input id="de_programme" value={payload.programme || ''} onChange={(e) => setField('programme', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="requested_entry_level">Requested entry level</Label>
+                <Label htmlFor="requested_entry_level" required>Requested entry level</Label>
                 <select id="requested_entry_level" className={selectClass} value={payload.requested_entry_level || '200'} onChange={(e) => setField('requested_entry_level', e.target.value)}>
                   {DE_ENTRY_LEVELS.map((level) => <option key={level} value={level}>{level} Level</option>)}
                 </select>
@@ -1447,33 +1466,33 @@ export default function Wizard() {
           <FormSection title="Transfer details" description="This information is used for credit and academic evaluation before admission.">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="previous_university">Previous university</Label>
+                <Label htmlFor="previous_university" required>Previous university</Label>
                 <Input id="previous_university" value={payload.previous_university || ''} onChange={(e) => setField('previous_university', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="previous_programme">Previous programme</Label>
+                <Label htmlFor="previous_programme" required>Previous programme</Label>
                 <Input id="previous_programme" value={payload.previous_programme || ''} onChange={(e) => setField('previous_programme', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="previous_student_id">Previous student ID</Label>
+                <Label htmlFor="previous_student_id" required>Previous student ID</Label>
                 <Input id="previous_student_id" value={payload.previous_student_id || ''} onChange={(e) => setField('previous_student_id', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="credits_earned">Credits earned</Label>
+                <Label htmlFor="credits_earned" required>Credits earned</Label>
                 <Input id="credits_earned" type="number" min="0" value={payload.credits_earned || ''} onChange={(e) => setField('credits_earned', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="cgpa">CGPA</Label>
+                <Label htmlFor="cgpa" required>CGPA</Label>
                 <Input id="cgpa" type="number" min="0" max="5" step="0.01" value={payload.cgpa || ''} onChange={(e) => setField('cgpa', e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="transfer_entry_level">Requested entry level</Label>
+                <Label htmlFor="transfer_entry_level" required>Requested entry level</Label>
                 <select id="transfer_entry_level" className={selectClass} value={payload.requested_entry_level || '200'} onChange={(e) => setField('requested_entry_level', e.target.value)}>
                   {TRANSFER_ENTRY_LEVELS.map((level) => <option key={level} value={level}>{level} Level</option>)}
                 </select>
               </div>
               <div>
-                <Label htmlFor="has_transfer_approval">Transfer approval</Label>
+                <Label htmlFor="has_transfer_approval" required>Transfer approval</Label>
                 <select
                   id="has_transfer_approval"
                   className={selectClass}
@@ -1489,7 +1508,7 @@ export default function Wizard() {
                 <Input id="approval_reference" value={payload.approval_reference || ''} onChange={(e) => setField('approval_reference', e.target.value)} />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="reason_for_transfer">Reason for transfer</Label>
+                <Label htmlFor="reason_for_transfer" required>Reason for transfer</Label>
                 <textarea id="reason_for_transfer" className={selectClass} rows={4} value={payload.reason_for_transfer || ''} onChange={(e) => setField('reason_for_transfer', e.target.value)} />
               </div>
             </div>
@@ -1502,7 +1521,7 @@ export default function Wizard() {
               {(payload.prior_degrees || []).map((row: any, index: number) => (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4">
                   <div>
-                    <Label>Degree title</Label>
+                    <Label required>Degree title</Label>
                     <Input value={row.degree_title || ''} onChange={(e) => {
                       const prior_degrees = [...payload.prior_degrees];
                       prior_degrees[index] = { ...row, degree_title: e.target.value };
@@ -1510,7 +1529,7 @@ export default function Wizard() {
                     }} />
                   </div>
                   <div>
-                    <Label>Institution</Label>
+                    <Label required>Institution</Label>
                     <Input value={row.institution || ''} onChange={(e) => {
                       const prior_degrees = [...payload.prior_degrees];
                       prior_degrees[index] = { ...row, institution: e.target.value };
@@ -1526,7 +1545,7 @@ export default function Wizard() {
                     }} />
                   </div>
                   <div>
-                    <Label>Classification</Label>
+                    <Label required>Classification</Label>
                     <select className={selectClass} value={row.class || 'second_lower'} onChange={(e) => {
                       const prior_degrees = [...payload.prior_degrees];
                       prior_degrees[index] = { ...row, class: e.target.value };
@@ -1556,7 +1575,7 @@ export default function Wizard() {
                     </select>
                   </div>
                   <div>
-                    <Label>Year awarded</Label>
+                    <Label required>Year awarded</Label>
                     <Input value={row.year_awarded || ''} onChange={(e) => {
                       const prior_degrees = [...payload.prior_degrees];
                       prior_degrees[index] = { ...row, year_awarded: e.target.value };
@@ -1572,7 +1591,7 @@ export default function Wizard() {
             <FormSection title="NYSC" description="Required unless it does not apply to you.">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label>Status</Label>
+                  <Label required>Status</Label>
                   <select className={selectClass} value={payload.nysc_status || 'completed'} onChange={(e) => setPayload({ ...payload, nysc_status: e.target.value })}>
                     <option value="completed">Completed (discharge)</option>
                     <option value="exempted">Exempted</option>
@@ -1580,7 +1599,7 @@ export default function Wizard() {
                   </select>
                 </div>
                 <div>
-                  <Label>Certificate / exemption number</Label>
+                  <Label required={(payload.nysc_status || 'completed') !== 'not_applicable'}>Certificate / exemption number</Label>
                   <Input value={payload.nysc_number || ''} onChange={(e) => setPayload({ ...payload, nysc_number: e.target.value })} />
                 </div>
                 <div>
@@ -1588,7 +1607,7 @@ export default function Wizard() {
                   <Input value={payload.nysc_year || ''} onChange={(e) => setPayload({ ...payload, nysc_year: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Exemption / N/A reason</Label>
+                  <Label required={payload.nysc_status === 'exempted' || payload.nysc_status === 'not_applicable'}>Exemption / N/A reason</Label>
                   <Input value={payload.nysc_exemption_reason || ''} onChange={(e) => setPayload({ ...payload, nysc_exemption_reason: e.target.value })} />
                 </div>
               </div>
@@ -1603,21 +1622,40 @@ export default function Wizard() {
         {step.key === 'pg_research' && (
           <FormSection title="Research and statement of purpose">
             <div className="space-y-4">
+              {(() => {
+                const limits = app?.pg_word_limits || {};
+                const researchMin = Number(limits.pg_research_interest_min_words || 0);
+                const researchMax = Number(limits.pg_research_interest_max_words || 0);
+                const purposeMin = Number(limits.pg_statement_of_purpose_min_words || 0);
+                const purposeMax = Number(limits.pg_statement_of_purpose_max_words || 0);
+                const researchCount = countWords(payload.research_interest);
+                const purposeCount = countWords(payload.statement_of_purpose);
+                return (
+                  <>
               <div>
-                <Label>Research interest</Label>
+                <Label required={!!firstChoiceProgram?.is_research_degree}>Research interest</Label>
                 <textarea className={selectClass} rows={3} value={payload.research_interest || ''} onChange={(e) => setPayload({ ...payload, research_interest: e.target.value })} />
+                <p className={wordLimitClass(researchCount, researchMin, researchMax)}>
+                  {wordLimitHint(researchCount, researchMin, researchMax)}
+                </p>
               </div>
               <div>
-                <Label>Proposed research area</Label>
+                <Label required={!!firstChoiceProgram?.is_research_degree}>Proposed research area</Label>
                 <Input value={payload.proposed_area || ''} onChange={(e) => setPayload({ ...payload, proposed_area: e.target.value })} />
               </div>
               <div>
-                <Label>Statement of purpose</Label>
+                <Label required>Statement of purpose</Label>
                 <textarea className={selectClass} rows={6} value={payload.statement_of_purpose || ''} onChange={(e) => setPayload({ ...payload, statement_of_purpose: e.target.value })} />
+                <p className={wordLimitClass(purposeCount, purposeMin, purposeMax)}>
+                  {wordLimitHint(purposeCount, purposeMin, purposeMax)}
+                </p>
               </div>
+                  </>
+                );
+              })()}
               {firstChoiceProgram?.is_research_degree && (
                 <div>
-                  <Label>Preferred supervisors</Label>
+                  <Label required>Preferred supervisors</Label>
                   <select
                     multiple
                     className={selectClass}
@@ -1644,7 +1682,7 @@ export default function Wizard() {
               {(payload.referees || []).map((row: any, index: number) => (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4">
                   <div>
-                    <Label>Name</Label>
+                    <Label required>Name</Label>
                     <Input value={row.name || ''} onChange={(e) => {
                       const referees = [...payload.referees];
                       referees[index] = { ...row, name: e.target.value };
@@ -1652,7 +1690,7 @@ export default function Wizard() {
                     }} />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label required>Email</Label>
                     <Input type="email" value={row.email || ''} onChange={(e) => {
                       const referees = [...payload.referees];
                       referees[index] = { ...row, email: e.target.value };
@@ -1660,7 +1698,7 @@ export default function Wizard() {
                     }} />
                   </div>
                   <div>
-                    <Label>Institution</Label>
+                    <Label required>Institution</Label>
                     <Input value={row.institution || ''} onChange={(e) => {
                       const referees = [...payload.referees];
                       referees[index] = { ...row, institution: e.target.value };
@@ -1668,7 +1706,7 @@ export default function Wizard() {
                     }} />
                   </div>
                   <div>
-                    <Label>Position</Label>
+                    <Label required>Position</Label>
                     <Input value={row.position || ''} onChange={(e) => {
                       const referees = [...payload.referees];
                       referees[index] = { ...row, position: e.target.value };
@@ -1689,175 +1727,91 @@ export default function Wizard() {
         )}
 
         {step.key === 'programme_selection' && (
-          <FormSection title="Programme selection" description="A first-choice programme is required to submit. Choose college, then department, then programme. Second choice is optional.">
+          <FormSection title="Programme selection" description={app.entry_mode === 'jupeb'
+            ? 'Search and pick a programme at a JUPEB centre. College and department are filled from that programme. JUPEB applicants choose one programme only.'
+            : 'Search and pick a programme. College and department are filled from that programme. First choice is required; second choice is optional.'
+          }>
             <div className="grid grid-cols-1 gap-8 max-w-xl">
               <div className="space-y-4">
-                <p className="text-sm font-semibold text-slate-800">First choice</p>
+                <p className="text-sm font-semibold text-slate-800">{app.entry_mode === 'jupeb' ? 'Programme' : 'First choice'}</p>
                 <div>
-                  <Label htmlFor="first_choice_college_id">College</Label>
-                  <select
-                    id="first_choice_college_id"
-                    className={selectClass}
-                    value={payload.first_choice_college_id || ''}
-                    onChange={(e) => {
-                      const collegeId = Number(e.target.value) || '';
-                      setPayload((prev: any) => ({
-                        ...prev,
-                        first_choice_college_id: collegeId,
-                        first_choice_department_id: '',
-                        first_choice_program_id: '',
-                        program_id: '',
-                      }));
-                    }}
-                  >
-                    <option value="">Select college</option>
-                    {collegeOptions.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="first_choice_department_id">Department</Label>
-                  <select
-                    id="first_choice_department_id"
-                    className={selectClass}
-                    value={payload.first_choice_department_id || ''}
-                    disabled={!payload.first_choice_college_id}
-                    onChange={(e) => {
-                      const departmentId = Number(e.target.value) || '';
-                      setPayload((prev: any) => ({
-                        ...prev,
-                        first_choice_department_id: departmentId,
-                        first_choice_program_id: '',
-                        program_id: '',
-                      }));
-                    }}
-                  >
-                    <option value="">
-                      {!payload.first_choice_college_id
-                        ? 'Select a college first'
-                        : departmentsFor(payload.first_choice_college_id).length
-                          ? 'Select department'
-                          : 'No departments in this college yet'}
-                    </option>
-                    {departmentsFor(payload.first_choice_college_id).map((d) => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="first_choice_program_id">Programme</Label>
-                  <select
+                  <Label htmlFor="first_choice_program_id" required>Programme</Label>
+                  <SearchableSelect
                     id="first_choice_program_id"
-                    className={selectClass}
                     value={payload.first_choice_program_id || ''}
-                    disabled={!payload.first_choice_department_id}
-                    onChange={(e) => {
-                      const id = Number(e.target.value) || '';
-                      setPayload((prev: any) => ({
-                        ...prev,
-                        first_choice_program_id: id,
-                        program_id: id,
-                        second_choice_program_id:
-                          Number(prev.second_choice_program_id) === Number(id) ? '' : prev.second_choice_program_id,
-                      }));
-                    }}
-                  >
-                    <option value="">
-                      {!payload.first_choice_department_id
-                        ? 'Select a department first'
-                        : programsFor(payload.first_choice_department_id).length
-                          ? 'Select programme'
-                          : 'No programmes for this admission category yet'}
-                    </option>
-                    {programsFor(payload.first_choice_department_id).map((p) => (
-                      <option key={p.id} value={p.id}>{programOptionLabel(p)}</option>
-                    ))}
-                  </select>
+                    options={programOptions()}
+                    placeholder={programs.length
+                      ? (app.entry_mode === 'jupeb' ? 'Search JUPEB centre programme' : 'Search programme')
+                      : (app.entry_mode === 'jupeb' ? 'No JUPEB centre programmes yet' : 'No programmes for this admission category yet')}
+                    emptyText="No matching programme"
+                    disabled={!programs.length}
+                    onChange={(id) => applyProgrammeChoice('first', id)}
+                  />
                   {firstChoiceProgram && app.entry_mode === 'pg' && eligibilityBlock(firstChoiceProgram)}
                   {!Number(payload.first_choice_program_id) && (
                     <p className="text-sm text-amber-700 mt-2">Select a first-choice programme. You cannot submit without one.</p>
                   )}
                 </div>
+                <div>
+                  <Label htmlFor="first_choice_college">College</Label>
+                  <input
+                    id="first_choice_college"
+                    readOnly
+                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
+                    value={collegeNameOf(firstChoiceProgram)}
+                    placeholder="Filled from programme"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="first_choice_department">Department</Label>
+                  <input
+                    id="first_choice_department"
+                    readOnly
+                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
+                    value={departmentNameOf(firstChoiceProgram)}
+                    placeholder="Filled from programme"
+                  />
+                </div>
               </div>
 
+              {app.entry_mode !== 'jupeb' && (
               <div className="space-y-4">
                 <p className="text-sm font-semibold text-slate-800">Second choice <span className="font-normal text-slate-500">(optional)</span></p>
                 <div>
-                  <Label htmlFor="second_choice_college_id">College</Label>
-                  <select
-                    id="second_choice_college_id"
-                    className={selectClass}
-                    value={payload.second_choice_college_id || ''}
-                    onChange={(e) => {
-                      const collegeId = Number(e.target.value) || '';
-                      setPayload((prev: any) => ({
-                        ...prev,
-                        second_choice_college_id: collegeId,
-                        second_choice_department_id: '',
-                        second_choice_program_id: '',
-                      }));
-                    }}
-                  >
-                    <option value="">Select college</option>
-                    {collegeOptions.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="second_choice_department_id">Department</Label>
-                  <select
-                    id="second_choice_department_id"
-                    className={selectClass}
-                    value={payload.second_choice_department_id || ''}
-                    disabled={!payload.second_choice_college_id}
-                    onChange={(e) => {
-                      const departmentId = Number(e.target.value) || '';
-                      setPayload((prev: any) => ({
-                        ...prev,
-                        second_choice_department_id: departmentId,
-                        second_choice_program_id: '',
-                      }));
-                    }}
-                  >
-                    <option value="">
-                      {!payload.second_choice_college_id
-                        ? 'Select a college first'
-                        : departmentsFor(payload.second_choice_college_id).length
-                          ? 'Select department'
-                          : 'No departments in this college yet'}
-                    </option>
-                    {departmentsFor(payload.second_choice_college_id).map((d) => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
                   <Label htmlFor="second_choice_program_id">Programme</Label>
-                  <select
+                  <SearchableSelect
                     id="second_choice_program_id"
-                    className={selectClass}
                     value={payload.second_choice_program_id || ''}
-                    disabled={!payload.second_choice_department_id}
-                    onChange={(e) => setPayload((prev: any) => ({
-                      ...prev,
-                      second_choice_program_id: Number(e.target.value) || '',
-                    }))}
-                  >
-                    <option value="">
-                      {!payload.second_choice_department_id
-                        ? 'Select a department first'
-                        : programsFor(payload.second_choice_department_id, Number(payload.first_choice_program_id) || undefined).length
-                          ? 'None'
-                          : 'No programmes for this admission category yet'}
-                    </option>
-                    {programsFor(payload.second_choice_department_id, Number(payload.first_choice_program_id) || undefined).map((p) => (
-                      <option key={p.id} value={p.id}>{programOptionLabel(p)}</option>
-                    ))}
-                  </select>
+                    options={programOptions(Number(payload.first_choice_program_id) || undefined)}
+                    placeholder={programs.length ? 'Search programme' : 'No programmes for this admission category yet'}
+                    emptyText="No matching programme"
+                    allowClear
+                    disabled={!programs.length}
+                    onChange={(id) => applyProgrammeChoice('second', id)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="second_choice_college">College</Label>
+                  <input
+                    id="second_choice_college"
+                    readOnly
+                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
+                    value={collegeNameOf(secondChoiceProgram)}
+                    placeholder="Filled from programme"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="second_choice_department">Department</Label>
+                  <input
+                    id="second_choice_department"
+                    readOnly
+                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
+                    value={departmentNameOf(secondChoiceProgram)}
+                    placeholder="Filled from programme"
+                  />
                 </div>
               </div>
+              )}
             </div>
           </FormSection>
         )}
@@ -1866,9 +1820,11 @@ export default function Wizard() {
           <FormSection
             title="Required documents"
             description={
-              ['utme', 'jupeb'].includes(app.entry_mode)
-                ? 'Upload Passport, Birth Certificate, JAMB Result, and O\'Level Result (1st sitting required; 2nd sitting optional).'
-                : 'Upload the documents listed for your admission category.'
+              app.entry_mode === 'jupeb'
+                ? "Upload Passport and O'Level Result. First sitting is required; second sitting is optional (NABTEB is one sitting only)."
+                : ['utme'].includes(app.entry_mode)
+                  ? 'Upload Passport, Birth Certificate, JAMB Result, and O\'Level Result (1st sitting required; 2nd sitting optional).'
+                  : 'Upload the documents listed for your admission category.'
             }
           >
             <div className="space-y-4 max-w-2xl">
@@ -1902,7 +1858,10 @@ export default function Wizard() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-slate-900">{doc.label}</p>
+                            <p className="font-medium text-slate-900">
+                              {doc.label}
+                              {doc.required ? <RequiredMark /> : null}
+                            </p>
                             <span className={`text-xs rounded-full px-2 py-0.5 ${doc.required ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-600'}`}>
                               {doc.required ? 'Required' : 'Optional'}
                             </span>
@@ -1947,25 +1906,55 @@ export default function Wizard() {
         )}
 
         {(ninVerified || step.key !== 'biodata') && (
-          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
-              {saving ? <Spinner label="Saving…" /> : idx < steps.length - 1 ? 'Save & continue' : 'Save progress'}
-            </Button>
-            {ninVerified && (
-              <Button
-                type="button"
-                onClick={openFormPrint}
-                disabled={printLoading}
-                className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
-              >
-                {printLoading ? <Spinner label="Opening…" /> : 'Print form'}
-              </Button>
-            )}
+          <div className="pt-4 border-t border-slate-100 space-y-4">
             {idx === steps.length - 1 && ['fee_paid', 'form_in_progress'].includes(app.stage) && (
-              <Button onClick={submit} disabled={saving || !ninVerified || !selectedProgrammeId} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
-                {saving ? <Spinner label="Submitting…" /> : 'Submit application'}
-              </Button>
+              <div className="space-y-3">
+                {!windowOpen && (
+                  <Alert tone="error">
+                    <p className="font-semibold mb-1">Application window closed</p>
+                    <p>The application window for this category has closed. You can save progress, but you cannot submit.</p>
+                  </Alert>
+                )}
+                <Alert tone="warning">
+                  <p className="font-semibold mb-1">Before you submit</p>
+                  <p>
+                    Review every section of this application. After you submit, your file is locked for screening and cannot be edited.
+                    You confirm that the information and documents provided are true, complete, and authentic.
+                    False or misleading statements may affect your admission.
+                  </p>
+                </Alert>
+                <label className={`flex gap-3 items-start rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-sm ${windowOpen ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={submitAcknowledged}
+                    disabled={!windowOpen}
+                    onChange={(e) => setSubmitAcknowledged(e.target.checked)}
+                  />
+                  <span>I have reviewed my application and accept this notice.<RequiredMark /></span>
+                </label>
+              </div>
             )}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+              <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
+                {saving ? <Spinner label="Saving…" /> : idx < steps.length - 1 ? 'Save & continue' : 'Save progress'}
+              </Button>
+              {ninVerified && (
+                <Button
+                  type="button"
+                  onClick={openFormPrint}
+                  disabled={printLoading}
+                  className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
+                >
+                  {printLoading ? <Spinner label="Opening…" /> : 'Print form'}
+                </Button>
+              )}
+              {idx === steps.length - 1 && ['fee_paid', 'form_in_progress'].includes(app.stage) && (
+                <Button onClick={submit} disabled={saving || !ninVerified || !selectedProgrammeId || !submitAcknowledged || !windowOpen} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                  {saving ? <Spinner label="Submitting…" /> : 'Submit application'}
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </Card>

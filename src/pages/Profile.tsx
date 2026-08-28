@@ -118,8 +118,8 @@ export default function Profile() {
   if (!auth?.is_student || !student) {
     return (
       <div className="space-y-4">
-        <PageHeader title="My student record" description="Your student record opens after acceptance fee and student creation." />
-        <Alert tone="info">Complete admission and acceptance fee payment to unlock this page.</Alert>
+        <PageHeader title="My student record" description="Your student record opens after acceptance fee and physical clearance." />
+        <Alert tone="info">Pay acceptance and complete physical clearance on campus to unlock this page.</Alert>
       </div>
     );
   }
@@ -165,9 +165,8 @@ export default function Profile() {
             <Field label="Program" value={display(program?.name)} />
             <Field label="Fullname" value={display(fullName)} />
             <Field label="State of origin" value={display(student.state)} />
-            <div className="sm:col-span-2">
-              <Field label="Phone number" value={display(student.phone || auth.user?.phone)} />
-            </div>
+            <Field label="Phone from NIN" value={display(student.phone || auth.user?.phone)} />
+            <Field label="Alternate phone" value={display(student.alternate_phone || auth.user?.alternate_phone)} />
           </dl>
         </Section>
 

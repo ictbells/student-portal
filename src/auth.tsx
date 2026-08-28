@@ -12,6 +12,7 @@ export type AuthState = {
   unpaid_application_fee?: boolean;
   unpaid_acceptance_fee?: boolean;
   application_id?: number;
+  nin_verified?: boolean;
   programme_fee_set?: boolean;
   programme_fee_total?: number | null;
   university: { name: string; motto: string };

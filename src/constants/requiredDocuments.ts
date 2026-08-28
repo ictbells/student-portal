@@ -7,7 +7,15 @@ export type RequiredDoc = {
 };
 
 export function requiredDocumentsFor(entryMode?: string, nyscStatus?: string): RequiredDoc[] {
-  if (entryMode === 'utme' || entryMode === 'jupeb') {
+  if (entryMode === 'jupeb') {
+    return [
+      { key: 'passport', label: 'Passport', required: true, description: 'Passport photograph (usually captured from NIN verification).' },
+      { key: 'olevel_first_sitting', label: "O'Level Result (1st sitting)", required: true, description: "Scan or clear photo of your first sitting O'Level result." },
+      { key: 'olevel_second_sitting', label: "O'Level Result (2nd sitting)", required: false, description: 'Optional — upload if you have a second sitting.' },
+    ];
+  }
+
+  if (entryMode === 'utme') {
     return [
       { key: 'passport', label: 'Passport', required: true, description: 'Passport photograph (usually captured from NIN verification).' },
       { key: 'birth_certificate', label: 'Birth Certificate', required: true, description: 'Birth certificate or sworn age declaration.' },
@@ -46,13 +54,16 @@ export function requiredDocumentsFor(entryMode?: string, nyscStatus?: string): R
       { key: 'academic_transcript', label: 'Academic transcript', required: true, description: 'Official transcript of the qualifying degree.' },
       { key: 'nysc_certificate', label: 'NYSC certificate or exemption', required: nyscStatus !== 'not_applicable', description: 'NYSC discharge or exemption certificate. Not required if NYSC does not apply.' },
       { key: 'statement_of_purpose', label: 'Statement of purpose (optional file)', required: false, description: 'Optional extra copy of your statement of purpose.' },
-      { key: 'olevel_first_sitting', label: "O'Level Result (1st sitting)", required: false, description: "Optional scan of your first sitting O'Level result." },
+      { key: 'olevel_first_sitting', label: "O'Level Result (1st sitting)", required: true, description: "Scan or clear photo of your first sitting O'Level result." },
+      { key: 'olevel_second_sitting', label: "O'Level Result (2nd sitting)", required: false, description: 'Optional — upload if you have a second sitting.' },
       { key: 'supporting', label: 'Supporting document', required: false, description: 'Any additional supporting document.' },
     ];
   }
 
   return [
     { key: 'passport', label: 'Passport', required: true, description: 'Passport photograph (usually captured from NIN verification).' },
+    { key: 'olevel_first_sitting', label: "O'Level Result (1st sitting)", required: true, description: "Scan or clear photo of your first sitting O'Level result." },
+    { key: 'olevel_second_sitting', label: "O'Level Result (2nd sitting)", required: false, description: 'Optional — upload if you have a second sitting.' },
     { key: 'supporting', label: 'Supporting document', required: false, description: 'Any additional supporting document.' },
   ];
 }

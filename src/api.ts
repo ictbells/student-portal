@@ -32,13 +32,45 @@ api.interceptors.response.use(
   },
 );
 
-export function networkErrorMessage(err: unknown, fallback = 'Unable to sign in'): string {
-  const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } }; message?: string; code?: string };
-  const fromApi = ax.response?.data?.message || ax.response?.data?.errors?.login?.[0];
-  if (fromApi) return fromApi;
+function flattenValidationErrors(errors: unknown): string {
+  if (!errors || typeof errors !== 'object') return '';
+  const parts: string[] = [];
+  for (const value of Object.values(errors as Record<string, unknown>)) {
+    if (typeof value === 'string' && value.trim()) {
+      parts.push(value.trim());
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === 'string' && item.trim()) parts.push(item.trim());
+      }
+    }
+  }
+  return parts.join(' ');
+}
+
+export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
+  const ax = err as { response?: { data?: unknown } };
+  let data = ax.response?.data;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      data = undefined;
+    }
+  }
+  const payload = data && typeof data === 'object'
+    ? data as { message?: string; errors?: unknown }
+    : undefined;
+  const fromErrors = flattenValidationErrors(payload?.errors);
+  if (fromErrors) return fromErrors;
+  const fromMessage = typeof payload?.message === 'string' ? payload.message.trim() : '';
+  if (fromMessage) return fromMessage;
   if (ax.response) return fallback;
   const apiHost = (baseURL || '(same origin)').replace(/\/$/, '');
   return `Cannot reach the API (${apiHost}). On this phone open that URL — if it fails, check www vs non-www and mobile data vs Wi‑Fi.`;
+}
+
+export function networkErrorMessage(err: unknown, fallback = 'Unable to sign in'): string {
+  return apiErrorMessage(err, fallback);
 }
 
 export default api;

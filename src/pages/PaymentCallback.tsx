@@ -54,7 +54,7 @@ function copyFor(kind: PaymentKind, isStudent?: boolean) {
         verifyingTitle: 'Confirming acceptance fee',
         verifying: 'Please wait while we confirm your acceptance fee payment.',
         successTitle: 'Acceptance fee paid',
-        success: 'Your student record will open shortly.',
+        success: 'Come to campus with your original documents for physical clearance. Your student record opens after staff clear you.',
         failedTitle: 'Acceptance fee not confirmed',
         failed: 'We could not confirm this payment. If money left your account, contact admissions.',
         cta: isStudent ? 'Go to dashboard' : 'View status',

@@ -49,6 +49,7 @@ export function StepIndicator({
           const active = index === currentIndex;
           const last = index === steps.length - 1;
           const interactive = typeof onStepClick === 'function';
+          const clickable = interactive && !locked;
 
           return (
             <li key={step.key} className="flex items-center">
@@ -56,8 +57,12 @@ export function StepIndicator({
                 type="button"
                 onClick={() => onStepClick?.(index)}
                 disabled={locked || !interactive}
+                title={clickable ? `Go to ${step.title}` : undefined}
+                aria-current={active ? 'step' : undefined}
                 className={`group flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 transition ${
-                  locked || !interactive ? 'cursor-default' : 'hover:bg-white/80'
+                  clickable
+                    ? 'cursor-pointer hover:bg-sky-50 hover:ring-1 hover:ring-sky-200'
+                    : 'cursor-default'
                 } ${locked ? 'opacity-50' : ''}`}
               >
                 <span
@@ -67,14 +72,14 @@ export function StepIndicator({
                       : complete
                         ? 'bg-emerald-600 text-white ring-emerald-100'
                         : 'bg-white text-slate-500 ring-slate-200'
-                  }`}
+                  } ${clickable ? 'group-hover:ring-sky-300' : ''}`}
                 >
                   {complete && !active ? '✓' : index + 1}
                 </span>
                 <span
                   className={`text-[10px] sm:text-sm text-left leading-tight max-w-[4.5rem] sm:max-w-[9rem] truncate sm:whitespace-normal ${
                     active ? 'font-semibold text-slate-900' : complete ? 'text-emerald-800' : 'text-slate-500'
-                  }`}
+                  } ${clickable ? 'group-hover:text-sky-800 group-hover:underline' : ''}`}
                 >
                   {step.title}
                 </span>

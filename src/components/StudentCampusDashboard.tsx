@@ -103,7 +103,7 @@ export function StudentCampusDashboard() {
             : 'Pay outstanding fees to continue')
           : (paidInvoices.length ? `${paidInvoices.length} paid` : 'School fees & charges'),
         tone: Number(wallet?.outstanding ?? unpaidInvoices.length) > 0 ? 'warning' : 'success',
-        to: '/invoices',
+        to: '/finance-status',
       },
       {
         label: 'Course registrations',

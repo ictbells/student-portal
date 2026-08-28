@@ -1,11 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { networkErrorMessage } from '../api';
+import api, { apiErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
+import AdmissionGuidePopup from '../components/AdmissionGuidePopup';
 import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 import { PasswordHints } from '../components/passwordHints';
+import { isValidPhone, PHONE_ERROR, PHONE_HINT } from '../lib/phone';
 
 type IdentityPreview = {
   nin: string;
@@ -72,10 +74,14 @@ export default function Signup() {
   const [identity, setIdentity] = useState<IdentityPreview | null>(null);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [alternatePhone, setAlternatePhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [existingAccount, setExistingAccount] = useState(false);
+  const [intakesError, setIntakesError] = useState<string | null>(null);
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
@@ -86,8 +92,12 @@ export default function Signup() {
       .then(({ data }) => {
         const list = Array.isArray(data) ? data : data?.data ?? [];
         setIntakes(list);
+        setIntakesError(null);
       })
-      .catch(() => setIntakes([]));
+      .catch((err) => {
+        setIntakes([]);
+        setIntakesError(apiErrorMessage(err, 'Could not load application sessions. Check your connection and try again.'));
+      });
   }, []);
 
   const selectedIntake = useMemo(
@@ -100,14 +110,19 @@ export default function Signup() {
 
   const continueFromIntake = async (e: FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!selectedIntake) {
-      toast.error('Select the application session you qualify for.');
+      const message = 'Select the application session you qualify for.';
+      setFormError(message);
+      toast.error(message);
       return;
     }
     if (requiresJamb && !jambRegistration.trim()) {
-      toast.error(selectedIntake.entry_mode === 'de'
+      const message = selectedIntake.entry_mode === 'de'
         ? 'JAMB Direct Entry number is required for this application session.'
-        : 'JAMB registration number is required for this application session.');
+        : 'JAMB registration number is required for this application session.';
+      setFormError(message);
+      toast.error(message);
       return;
     }
     if (requiresJamb && selectedIntake.candidate_list_required) {
@@ -117,8 +132,10 @@ export default function Signup() {
             ? { academic_year: selectedIntake.term.session_label }
             : undefined,
         });
-      } catch {
-        toast.error('This registration number is not on the candidate list for this application session.');
+      } catch (err) {
+        const message = apiErrorMessage(err, 'This registration number is not on the candidate list for this application session.');
+        setFormError(message);
+        toast.error(message);
         return;
       }
     }
@@ -129,6 +146,8 @@ export default function Signup() {
     e.preventDefault();
     if (!selectedIntake || verifying || nin.length !== 11) return;
     setVerifying(true);
+    setFormError(null);
+    setExistingAccount(false);
     try {
       const { data } = await api.post<IdentityPreview>('/api/nin/preview', {
         nin: nin.trim(),
@@ -142,9 +161,14 @@ export default function Signup() {
       toast.success(data.live === false
         ? 'NIN accepted in demo mode — this was not a live Prembly check.'
         : 'NIN verified');
-    } catch (err: any) {
-      const errors = err.response?.data?.errors;
-      toast.error(errors ? Object.values(errors).flat().join(' ') : err.response?.data?.message || 'NIN verification failed.');
+    } catch (err: unknown) {
+      const payload = (err as { response?: { data?: { existing_account?: boolean } } }).response?.data;
+      if (payload?.existing_account) {
+        setExistingAccount(true);
+      }
+      const message = apiErrorMessage(err, 'NIN verification failed.');
+      setFormError(message);
+      toast.error(message);
     } finally {
       setVerifying(false);
     }
@@ -152,18 +176,31 @@ export default function Signup() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!selectedIntake) {
-      toast.warning('Select an application session before creating an account.');
+      const message = 'Select an application session before creating an account.';
+      setFormError(message);
+      toast.warning(message);
       setStep('intake');
       return;
     }
     if (!identity) {
-      toast.warning('Verify your NIN before creating an account.');
+      const message = 'Verify your NIN before creating an account.';
+      setFormError(message);
+      toast.warning(message);
       setStep('nin');
       return;
     }
     if (password !== confirm) {
-      toast.error('Passwords do not match.');
+      const message = 'Passwords do not match.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (!isValidPhone(alternatePhone)) {
+      const message = PHONE_ERROR;
+      setFormError(message);
+      toast.error(message);
       return;
     }
     setLoading(true);
@@ -172,6 +209,7 @@ export default function Signup() {
         nin: identity.nin,
         email,
         phone,
+        alternate_phone: alternatePhone.trim(),
         password,
         password_confirmation: confirm,
         intake_id: selectedIntake.id,
@@ -185,9 +223,9 @@ export default function Signup() {
       toast.success('Account created');
       nav('/apply');
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
-      const errors = ax.response?.data?.errors;
-      toast.error(errors ? Object.values(errors).flat().join(' ') : networkErrorMessage(err, 'Could not create account.'));
+      const message = apiErrorMessage(err, 'Could not create account.');
+      setFormError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -216,19 +254,35 @@ export default function Signup() {
       subtitle={heading.subtitle}
       kicker="New applicant"
       footer={
-        <p className="text-slate-500">
-          Already have an account? <AuthLink to="/login">Sign in</AuthLink>
-        </p>
+        <div className="space-y-3">
+          <AdmissionGuidePopup autoOpen={false} />
+          <p className="text-slate-500">
+            Already have an account? <AuthLink to="/login">Sign in</AuthLink>
+          </p>
+        </div>
       }
     >
       {applicationsOpen === null ? (
         <div className="flex justify-center py-8">
           <Spinner label="Checking application session…" className="text-brand" />
         </div>
+      ) : intakesError ? (
+        <Alert tone="error">{intakesError}</Alert>
       ) : applicationsOpen === false ? (
         <Alert tone="warning">{APPLICATIONS_CLOSED_MESSAGE}</Alert>
       ) : (
         <>
+          {existingAccount && (
+            <div className="mb-4">
+              <Alert tone="warning">
+                This NIN is already linked to a Bells University account. Sign in with your matric number, application number, or JAMB — do not create a second account.{' '}
+                <AuthLink to="/login">Sign in</AuthLink>
+                {' · '}
+                <AuthLink to="/forgot-password">Forgot password</AuthLink>
+              </Alert>
+            </div>
+          )}
+          {formError && !existingAccount && <div className="mb-4"><Alert tone="error">{formError}</Alert></div>}
           <ol className="mb-6 grid grid-cols-3 gap-2 text-xs">
             {([
               ['intake', '1', 'Session'],
@@ -248,7 +302,7 @@ export default function Signup() {
           {step === 'intake' && (
             <form onSubmit={continueFromIntake} className="space-y-5">
               <div>
-                <Label htmlFor="intake">Admission category</Label>
+                <Label htmlFor="intake" required>Admission category</Label>
                 <select
                   id="intake"
                   value={selectedIntakeId ?? ''}
@@ -284,7 +338,7 @@ export default function Signup() {
               </div>
               {requiresJamb && (
                 <div>
-                  <Label htmlFor="jamb">
+                  <Label htmlFor="jamb" required>
                     {selectedIntake?.entry_mode === 'de' ? 'JAMB Direct Entry number' : 'JAMB registration number'}
                   </Label>
                   <Input
@@ -320,7 +374,7 @@ export default function Signup() {
                 </Alert>
               )}
               <div>
-                <Label htmlFor="nin">National Identification Number (NIN)</Label>
+                <Label htmlFor="nin" required>National Identification Number (NIN)</Label>
                 <Input
                   id="nin"
                   inputMode="numeric"
@@ -358,7 +412,7 @@ export default function Signup() {
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {IDENTITY_FIELDS.map((field) => (
                     <div key={field.key}>
-                      <Label htmlFor={field.key}>{field.label}</Label>
+                      <Label htmlFor={field.key} required={field.key !== 'middle_name'}>{field.label}</Label>
                       <Input
                         id={field.key}
                         readOnly
@@ -374,16 +428,29 @@ export default function Signup() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" required>Email</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 <p className="mt-1 text-xs text-slate-500">Used for notifications and password reset.</p>
               </div>
               <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                <Label htmlFor="phone">Phone from NIN</Label>
+                <Input id="phone" type="tel" value={phone} readOnly className="bg-slate-50 text-slate-700" />
+                <p className="mt-1 text-xs text-slate-500">This number comes from your NIN record and cannot be changed here.</p>
               </div>
               <div>
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="alternate_phone" required>Alternate phone</Label>
+                <Input
+                  id="alternate_phone"
+                  type="tel"
+                  value={alternatePhone}
+                  onChange={(e) => setAlternatePhone(e.target.value)}
+                  required
+                  placeholder="0803 123 4567 or +1 202 555 0100"
+                />
+                <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
+              </div>
+              <div>
+                <Label htmlFor="password" required>Password</Label>
                 <PasswordInput
                   id="password"
                   value={password}
@@ -395,7 +462,7 @@ export default function Signup() {
                 </div>
               </div>
               <div>
-                <Label htmlFor="confirm">Confirm password</Label>
+                <Label htmlFor="confirm" required>Confirm password</Label>
                 <PasswordInput
                   id="confirm"
                   value={confirm}
