@@ -1356,7 +1356,7 @@ export function Academic() {
     <div className="space-y-6">
       <div>
         <Breadcrumb items={[{ label: 'Home', to: '/' }, { label: 'Academic' }]} />
-        <PageHeader title="Academic" description="Exam clearance, course standing, and your unofficial transcript." />
+        <PageHeader title="Academic" description="Exam clearance, unsigned transcript, course standing, and your unofficial transcript." />
       </div>
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1366,6 +1366,17 @@ export function Academic() {
           </div>
           <Link to="/course-registration" className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white">
             Open course registration
+          </Link>
+        </div>
+      </Card>
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-slate-900">Unsigned transcript</h2>
+            <p className="text-sm text-slate-500 mt-0.5">View registered courses and scores by session or semester. Print a copy — it is not signed.</p>
+          </div>
+          <Link to="/academic/unsigned-transcript" className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white">
+            Open unsigned transcript
           </Link>
         </div>
       </Card>

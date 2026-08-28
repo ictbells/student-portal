@@ -65,6 +65,7 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
     { to: '/clinic', label: 'Clinic', icon: 'clinic', show: !!auth?.is_student },
     { to: '/hostel', label: 'Hostel', icon: 'hostel', show: !!auth?.is_student },
     { to: '/academic', label: 'Academic', icon: 'academic', show: !!auth?.is_student },
+    { to: '/academic/unsigned-transcript', label: 'Unsigned transcript', icon: 'academic', show: !!auth?.is_student },
     { to: '/course-registration', label: 'Course registration', icon: 'academic', show: !!auth?.is_student },
     { to: '/documents', label: 'Documents', icon: 'documents', show: true },
   ];
@@ -83,6 +84,7 @@ const pageTitles: Record<string, string> = {
   '/clinic': 'Clinic',
   '/hostel': 'Hostel',
   '/academic': 'Academic',
+  '/academic/unsigned-transcript': 'Unsigned transcript',
   '/course-registration': 'Course registration',
   '/documents': 'Documents',
   '/announcements': 'Announcements',
@@ -210,7 +212,7 @@ export function Shell() {
             <NavLink
               key={i.to}
               to={i.to}
-              end={i.to === '/'}
+              end={i.to === '/' || i.to === '/academic'}
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 touch-manipulation transition ${

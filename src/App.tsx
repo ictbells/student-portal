@@ -22,6 +22,7 @@ import Referee from './pages/Referee';
 import NotFound from './pages/NotFound';
 import TranscriptRequestPage from './pages/TranscriptRequest';
 import TranscriptRequestCallback from './pages/TranscriptRequestCallback';
+import UnsignedTranscript from './pages/UnsignedTranscript';
 
 function Guard({ children }: { children: React.ReactNode }) {
   const { auth, loading } = useAuth();
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="clinic" element={<Clinic />} />
         <Route path="hostel" element={<Hostel />} />
         <Route path="academic" element={<Academic />} />
+        <Route path="academic/unsigned-transcript" element={<UnsignedTranscript />} />
         <Route path="course-registration" element={<CourseRegistration />} />
         <Route path="documents" element={<Documents />} />
         <Route path="announcements" element={<Announcements />} />

@@ -117,6 +117,7 @@ export function StudentCampusDashboard() {
         value: transcript?.cgpa != null ? String(transcript.cgpa) : (transcript?.gpa != null ? String(transcript.gpa) : '—'),
         hint: 'Cumulative academic standing (released results)',
         tone: (transcript?.cgpa ?? transcript?.gpa) != null ? 'info' : 'default',
+        to: '/academic/unsigned-transcript',
       },
     ];
   }, [auth?.user?.student, app?.program?.name, wallet, unpaidInvoices, paidInvoices.length, enrollments.length, transcript?.cgpa, transcript?.gpa]);
