@@ -1434,6 +1434,7 @@ export function Academic() {
             <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">CGPA</p>
               <p className="text-2xl font-semibold text-sky-700 mt-1">{formatGpa(tr.cgpa ?? tr.gpa)}</p>
+              {tr.cgpa_note ? <p className="text-xs text-slate-500 mt-2">{tr.cgpa_note}</p> : null}
             </div>
             {Array.isArray(tr.terms) && tr.terms.length > 0 && (
               <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
