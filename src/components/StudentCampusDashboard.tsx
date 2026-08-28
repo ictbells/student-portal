@@ -27,19 +27,19 @@ function StatCard({ label, value, hint, tone = 'default', to }: Stat) {
   const body = (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-slate-900 break-words leading-tight">{value}</p>
+      <p className="mt-2 text-lg sm:text-xl font-semibold text-slate-900 break-words leading-tight">{value}</p>
       {hint && <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{hint}</p>}
     </>
   );
   if (to) {
     return (
-      <Link to={to} className={`block rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+      <Link to={to} className={`block rounded-2xl border p-3 sm:p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
         {body}
       </Link>
     );
   }
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+    <div className={`rounded-2xl border p-3 sm:p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
       {body}
     </div>
   );
@@ -146,14 +146,14 @@ export function StudentCampusDashboard() {
                   <button
                     type="button"
                     onClick={openOfferPrompt}
-                    className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
+                    className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
                   >
                     Accept admission
                   </button>
                 ) : (
                   <Link
                     to="/course-registration"
-                    className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition"
+                    className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition"
                   >
                     Register courses
                   </Link>
@@ -175,7 +175,7 @@ export function StudentCampusDashboard() {
           <button
             type="button"
             onClick={openOfferPrompt}
-            className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
           >
             View offer and accept
           </button>
@@ -208,7 +208,7 @@ export function StudentCampusDashboard() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-900 mb-3">Campus overview</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
           {stats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}

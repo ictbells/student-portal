@@ -23,7 +23,7 @@ function EyeOffIcon({ className = 'h-4 w-4' }: { className?: string }) {
 export function Button({ className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium touch-manipulation transition disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
       {...props}
     />
   );
@@ -52,7 +52,7 @@ export function PasswordInput({ className = '', id, ...props }: Omit<InputHTMLAt
       <button
         type="button"
         onClick={() => setVisible((value) => !value)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        className="absolute right-0.5 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 touch-manipulation"
         aria-label={visible ? 'Hide password' : 'Show password'}
       >
         {visible ? <EyeOffIcon /> : <EyeIcon />}
@@ -67,7 +67,7 @@ export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: st
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-sm shadow-slate-200/40 ${className}`}>
+    <div className={`bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-6 shadow-sm shadow-slate-200/40 ${className}`}>
       {children}
     </div>
   );

@@ -17,10 +17,10 @@ export function PageHeader({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         {eyebrow && <p className="text-xs font-semibold uppercase tracking-wider text-sky-600 mb-1">{eyebrow}</p>}
-        <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">{title}</h1>
+        <h1 className="text-xl sm:text-3xl font-semibold text-slate-900 tracking-tight break-words">{title}</h1>
         {description && <p className="text-sm text-slate-600 mt-1.5 max-w-2xl leading-relaxed">{description}</p>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="shrink-0 w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">{action}</div>}
     </div>
   );
 }
@@ -56,7 +56,7 @@ export function StepIndicator({
                 type="button"
                 onClick={() => onStepClick?.(index)}
                 disabled={locked || !interactive}
-                className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${
+                className={`group flex min-h-11 items-center gap-2 rounded-lg px-2 py-1.5 transition ${
                   locked || !interactive ? 'cursor-default' : 'hover:bg-white/80'
                 } ${locked ? 'opacity-50' : ''}`}
               >
@@ -72,7 +72,7 @@ export function StepIndicator({
                   {complete && !active ? '✓' : index + 1}
                 </span>
                 <span
-                  className={`hidden sm:block text-left text-sm leading-tight max-w-[9rem] ${
+                  className={`text-[10px] sm:text-sm text-left leading-tight max-w-[4.5rem] sm:max-w-[9rem] truncate sm:whitespace-normal ${
                     active ? 'font-semibold text-slate-900' : complete ? 'text-emerald-800' : 'text-slate-500'
                   }`}
                 >
@@ -185,7 +185,7 @@ export function FormSection({
 
 export function Breadcrumb({ items }: { items: { label: string; to?: string }[] }) {
   return (
-    <nav className="text-xs text-slate-500 mb-2" aria-label="Breadcrumb">
+    <nav className="text-xs text-slate-500 mb-2 overflow-x-auto whitespace-nowrap" aria-label="Breadcrumb">
       {items.map((item, index) => (
         <span key={item.label}>
           {index > 0 && <span className="mx-1.5 text-slate-300">/</span>}

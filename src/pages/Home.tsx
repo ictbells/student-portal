@@ -29,19 +29,19 @@ function StatCard({ label, value, hint, tone = 'default', to }: Stat & { to?: st
   const body = (
     <>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-slate-900 break-words leading-tight">{value}</p>
+      <p className="mt-2 text-lg sm:text-xl font-semibold text-slate-900 break-words leading-tight">{value}</p>
       {hint && <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{hint}</p>}
     </>
   );
   if (to) {
     return (
-      <Link to={to} className={`block rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+      <Link to={to} className={`block rounded-2xl border p-3 sm:p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
         {body}
       </Link>
     );
   }
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
+    <div className={`rounded-2xl border p-3 sm:p-4 shadow-sm transition hover:shadow-md ${tones[tone]}`}>
       {body}
     </div>
   );
@@ -68,12 +68,12 @@ function QuickLinks({ links }: { links: typeof APPLICATION_QUICK_LINKS | typeof 
   return (
     <div>
       <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick links</h2>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
         {links.map((link) => (
           <Link
             key={link.to}
             to={link.to}
-            className="group rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
+            className="group rounded-xl border border-slate-200/80 bg-white p-3 sm:p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md hover:bg-sky-50/30"
           >
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{link.area}</p>
             <p className="mt-1 text-sm font-semibold text-slate-900 group-hover:text-sky-700 transition">{link.label}</p>
@@ -261,7 +261,7 @@ export default function Home() {
           <button
             type="button"
             onClick={openOfferPrompt}
-            className="inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
           >
             View offer and accept
           </button>
@@ -317,7 +317,7 @@ export default function Home() {
 
       <div>
         <h2 className="text-sm font-semibold text-slate-900 mb-3">Application overview</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
           {applicationStats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}

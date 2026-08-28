@@ -70,7 +70,7 @@ export default function Login() {
           
         </div>
         <div>
-          <div className="mb-1.5 flex items-center justify-between">
+          <div className="mb-1.5 flex items-center justify-between gap-3">
             <Label htmlFor="password">Password</Label>
             <AuthLink to="/forgot-password" className="text-xs font-medium">Forgot password?</AuthLink>
           </div>

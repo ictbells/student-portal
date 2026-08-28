@@ -109,13 +109,13 @@ export default function OfferAcceptanceModal() {
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[1px]"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/55 backdrop-blur-[1px]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="offer-prompt-title"
       >
-        <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-2xl">
-          <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-sky-700 px-6 py-7 text-white">
+        <div className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-emerald-100 bg-white shadow-2xl">
+          <div className="bg-gradient-to-br from-emerald-700 via-emerald-600 to-sky-700 px-4 py-6 sm:px-6 sm:py-7 text-white">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100">Admission offer</p>
             <h2 id="offer-prompt-title" className="mt-2 font-serif text-2xl sm:text-3xl leading-tight">
               Congratulations, {firstName}!
@@ -125,7 +125,7 @@ export default function OfferAcceptanceModal() {
               Review your letter and pay the acceptance fee to accept the offer.
             </p>
           </div>
-          <div className="space-y-4 px-6 py-5">
+          <div className="space-y-4 px-4 py-5 sm:px-6">
             {(programme || session || app?.offer_reference || invoice) && (
               <dl className="grid grid-cols-1 gap-3 text-sm">
                 {programme && (
@@ -161,7 +161,7 @@ export default function OfferAcceptanceModal() {
               <Button
                 type="button"
                 onClick={later}
-                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               >
                 Remind me later
               </Button>
@@ -169,7 +169,7 @@ export default function OfferAcceptanceModal() {
                 type="button"
                 onClick={openLetter}
                 disabled={printLoading || !auth?.application_id}
-                className="bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                className="w-full sm:w-auto bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50"
               >
                 {printLoading ? <Spinner label="Opening…" /> : 'View admission letter'}
               </Button>
@@ -177,7 +177,7 @@ export default function OfferAcceptanceModal() {
                 type="button"
                 onClick={pay}
                 disabled={paying || !canPay}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
               >
                 {paying ? <Spinner label="Starting payment…" className="text-white" /> : 'Accept offer — pay fee'}
               </Button>
@@ -192,14 +192,14 @@ export default function OfferAcceptanceModal() {
       </div>
       {printHtml && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50"
+          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50"
           onClick={() => setPrintHtml(null)}
           role="dialog"
           aria-modal="true"
           aria-label="Admission letter"
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">

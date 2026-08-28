@@ -48,7 +48,7 @@ export function StudentIdentityCard() {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 px-5 py-6 sm:px-7 sm:py-8 text-white">
+      <div className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 px-4 py-5 sm:px-7 sm:py-8 text-white">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.28),transparent_42%)]" />
         <div className="relative flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="shrink-0 mx-auto sm:mx-0">
@@ -70,8 +70,8 @@ export function StudentIdentityCard() {
                 {studentStatus}
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">{fullName}</h2>
-            <p className="mt-1.5 text-sm text-slate-200">{program?.name || 'Programme pending'}</p>
+            <h2 className="text-xl sm:text-3xl font-semibold tracking-tight break-words">{fullName}</h2>
+            <p className="mt-1.5 text-sm text-slate-200 break-words">{program?.name || 'Programme pending'}</p>
             <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <span className="inline-flex items-center rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold tracking-wide ring-1 ring-white/15">
                 {student.matric_number || 'Matric pending'}
@@ -82,7 +82,7 @@ export function StudentIdentityCard() {
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-slate-100">
         {snapshot.map((item) => (
-          <div key={item.label} className="bg-white px-4 py-4 sm:px-5">
+          <div key={item.label} className="bg-white px-3 py-3 sm:px-5 sm:py-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{item.label}</p>
             <p className="mt-1 text-sm font-semibold text-slate-900 leading-snug break-words">{item.value}</p>
           </div>

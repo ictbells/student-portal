@@ -356,7 +356,7 @@ export default function Clinic() {
                 type="button"
                 onClick={() => cancelAppointment(openAppointment.id)}
                 disabled={cancellingId === openAppointment.id}
-                className="shrink-0 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                className="shrink-0 w-full sm:w-auto border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               >
                 {cancellingId === openAppointment.id ? <Spinner label="Cancelling…" /> : 'Cancel'}
               </Button>
@@ -518,14 +518,14 @@ export default function Clinic() {
 
       {bookOpen && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60"
           onClick={() => !booking && setBookOpen(false)}
           role="dialog"
           aria-modal="true"
           aria-labelledby="book-appointment-title"
         >
           <div
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200"
+            className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
@@ -597,19 +597,19 @@ export default function Clinic() {
                   className={`${selectClass} min-h-[5.5rem]`}
                 />
               </div>
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
                 <Button
                   type="button"
                   onClick={() => setBookOpen(false)}
                   disabled={booking}
-                  className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  className="w-full sm:w-auto border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={booking}
-                  className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+                  className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
                 >
                   {booking ? <Spinner label="Submitting…" className="text-white" /> : 'Submit request'}
                 </Button>
@@ -622,14 +622,14 @@ export default function Clinic() {
 
       {(printLoading || printHtml) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => !printLoading && setPrintHtml(null)}
           role="dialog"
           aria-modal="true"
           aria-label="Sick note"
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">

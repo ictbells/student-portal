@@ -97,14 +97,14 @@ export function DocumentPreviewThumb({
 
   const modal = open && displayUrl ? (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={`${label} preview`}
       onClick={() => setOpen(false)}
     >
       <div
-        className="relative w-full max-w-3xl max-h-[90vh] rounded-2xl bg-white shadow-xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-3xl max-h-[92dvh] rounded-t-2xl sm:rounded-2xl bg-white shadow-xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">

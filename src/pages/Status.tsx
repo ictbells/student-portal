@@ -226,7 +226,7 @@ export default function Status() {
               <p className="text-xs text-emerald-800/70 mt-1 font-mono">Offer ref: {app.offer_reference}</p>
             )}
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 [&_a]:w-full sm:[&_a]:w-auto [&_button]:w-full sm:[&_button]:w-auto">
             <Button
               onClick={openOfferPrompt}
               className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
@@ -370,7 +370,7 @@ export default function Status() {
             </Card>
           )}
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 [&_a]:w-full sm:[&_a]:w-auto [&_button]:w-full sm:[&_button]:w-auto">
             {['fee_paid', 'form_in_progress'].includes(stage || '') && (
               <Link to="/wizard">
                 <Button className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm">Continue application form</Button>
@@ -415,14 +415,14 @@ export default function Status() {
 
       {(printLoading || printDoc) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => !printLoading && setPrintDoc(null)}
           role="dialog"
           aria-modal="true"
           aria-label={printDoc?.title || 'Document'}
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">

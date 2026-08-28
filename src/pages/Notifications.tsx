@@ -80,7 +80,7 @@ export default function Notifications() {
         <div className="space-y-2">
           {rows.map((n) => (
             <Card key={n.id} className={!n.read_at ? '!border-sky-200 !bg-sky-50/40' : ''}>
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col items-stretch sm:flex-row sm:items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-900">{n.title}</p>
                   {n.body && <p className="mt-1 text-sm text-slate-600 whitespace-pre-wrap">{n.body}</p>}
@@ -93,7 +93,7 @@ export default function Notifications() {
                 </div>
                 {!n.read_at && (
                   <Button
-                    className="shrink-0 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 !px-3 !py-1.5 text-xs"
+                    className="w-full sm:w-auto shrink-0 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 !px-3 !py-1.5 text-xs"
                     onClick={() => markRead(n)}
                   >
                     Mark read

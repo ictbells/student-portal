@@ -864,7 +864,7 @@ export default function Wizard() {
               <option value="">Grade</option>
               {OLEVEL_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
-            <Button type="button" onClick={() => removeOlevelRow(key, index)} className="text-rose-700 hover:bg-rose-50 shrink-0">Remove</Button>
+            <Button type="button" onClick={() => removeOlevelRow(key, index)} className="w-full sm:w-auto text-rose-700 hover:bg-rose-50 shrink-0">Remove</Button>
           </div>
         ))}
         <div className="flex flex-wrap gap-2">
@@ -1926,7 +1926,7 @@ export default function Wizard() {
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
                           disabled={uploadingDoc === doc.key}
-                          className="block w-full max-w-[16rem] text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-sky-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-sky-700 hover:file:bg-sky-100"
+                          className="block w-full max-w-full sm:max-w-[16rem] text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-sky-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-sky-700 hover:file:bg-sky-100"
                           onChange={async (e) => {
                             const selected = e.target.files?.[0];
                             e.target.value = '';
@@ -1947,8 +1947,8 @@ export default function Wizard() {
         )}
 
         {(ninVerified || step.key !== 'biodata') && (
-          <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
-            <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 pt-4 border-t border-slate-100">
+            <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
               {saving ? <Spinner label="Saving…" /> : idx < steps.length - 1 ? 'Save & continue' : 'Save progress'}
             </Button>
             {ninVerified && (
@@ -1956,13 +1956,13 @@ export default function Wizard() {
                 type="button"
                 onClick={openFormPrint}
                 disabled={printLoading}
-                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
+                className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
               >
                 {printLoading ? <Spinner label="Opening…" /> : 'Print form'}
               </Button>
             )}
             {idx === steps.length - 1 && ['fee_paid', 'form_in_progress'].includes(app.stage) && (
-              <Button onClick={submit} disabled={saving || !ninVerified || !selectedProgrammeId} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+              <Button onClick={submit} disabled={saving || !ninVerified || !selectedProgrammeId} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
                 {saving ? <Spinner label="Submitting…" /> : 'Submit application'}
               </Button>
             )}
@@ -1972,14 +1972,14 @@ export default function Wizard() {
 
       {(printLoading || printHtml) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => !printLoading && setPrintHtml(null)}
           role="dialog"
           aria-modal="true"
           aria-label="Application form"
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
@@ -2013,7 +2013,7 @@ export default function Wizard() {
                   id="wizard-form-frame"
                   title="Application form"
                   srcDoc={printHtml}
-                  className="w-full h-[min(70vh,720px)] border-0 bg-white"
+                  className="w-full h-[min(60dvh,720px)] sm:h-[min(70vh,720px)] border-0 bg-white"
                 />
               )}
             </div>

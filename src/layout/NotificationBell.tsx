@@ -128,7 +128,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition"
+        className="relative flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition touch-manipulation"
         aria-label={count ? `${count} unread notifications` : 'Notifications'}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -143,7 +143,7 @@ export function NotificationBell() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-80 origin-top-right rounded-xl border border-slate-200 bg-white shadow-lg z-30 overflow-hidden"
+          className="absolute right-0 mt-2 w-[min(18rem,calc(100vw-3.5rem))] origin-top-right rounded-xl border border-slate-200 bg-white shadow-lg z-30 overflow-hidden"
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
             <p className="text-sm font-semibold text-slate-900">Notifications</p>
@@ -165,7 +165,7 @@ export function NotificationBell() {
                   type="button"
                   role="menuitem"
                   onClick={() => openItem(item)}
-                  className={`flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-slate-50 transition ${
+                  className={`flex min-h-11 w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-slate-50 transition touch-manipulation ${
                     item.read_at ? '' : 'bg-sky-50/70'
                   }`}
                 >

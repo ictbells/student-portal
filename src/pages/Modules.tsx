@@ -171,13 +171,13 @@ export function WalletPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5">
-        <div className="lg:col-span-3 relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 p-6 sm:p-8 text-white shadow-lg">
+        <div className="lg:col-span-3 relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 p-5 sm:p-8 text-white shadow-lg">
           <div className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-sky-400/20 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-44 w-44 rounded-full bg-sky-500/10 blur-3xl" />
           <div className="relative flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200/80">Available balance</p>
-              <p className="mt-3 text-4xl sm:text-5xl font-semibold tracking-tight tabular-nums">{formatNaira(w.balance)}</p>
+              <p className="mt-3 text-3xl sm:text-5xl font-semibold tracking-tight tabular-nums break-words">{formatNaira(w.balance)}</p>
               <p className="mt-3 text-sm text-slate-300">Use this balance to pay tuition and other school charges.</p>
             </div>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur-sm">
@@ -215,7 +215,7 @@ export function WalletPage() {
                   type="button"
                   onClick={() => setAmount(String(preset))}
                   disabled={funding}
-                  className={`rounded-xl border px-3 py-2 text-sm font-medium tabular-nums transition ${
+                  className={`min-h-11 rounded-xl border px-3 py-2.5 text-sm font-medium tabular-nums transition ${
                     selected
                       ? 'border-sky-600 bg-sky-600 text-white shadow-sm'
                       : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-sky-200 hover:bg-sky-50'
@@ -788,14 +788,14 @@ export function Invoices() {
 
       {confirmInvoice && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => payingId == null && setConfirmInvoice(null)}
           role="dialog"
           aria-modal="true"
           aria-label="Confirm wallet payment"
         >
           <div
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200"
+            className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="border-b border-slate-100 px-5 py-4">
@@ -870,12 +870,12 @@ export function Invoices() {
                 </Alert>
               )}
             </div>
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-100 px-5 py-4">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-100 px-4 py-4 sm:px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <Button
                 type="button"
                 onClick={() => setConfirmInvoice(null)}
                 disabled={payingId === confirmInvoice.id}
-                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </Button>
@@ -883,7 +883,7 @@ export function Invoices() {
                 type="button"
                 onClick={payWallet}
                 disabled={payingId === confirmInvoice.id || (walletBalance != null && walletBalance < Number(confirmInvoice.balance ?? confirmInvoice.amount))}
-                className="bg-sky-600 hover:bg-sky-700 text-white"
+                className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white"
               >
                 {payingId === confirmInvoice.id ? <Spinner label="Paying…" /> : 'Approve payment'}
               </Button>
@@ -894,14 +894,14 @@ export function Invoices() {
 
       {(receiptLoading || receiptHtml) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => !receiptLoading && setReceiptHtml(null)}
           role="dialog"
           aria-modal="true"
           aria-label={receiptTitle}
         >
           <div
-            className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-4xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-sky-900/20 px-4 py-3 bg-[#0c4a6e] text-white">
@@ -1235,14 +1235,14 @@ export function Documents() {
 
       {(printLoading || printDoc) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => !printLoading && setPrintDoc(null)}
           role="dialog"
           aria-modal="true"
           aria-label={printDoc?.title || 'Document'}
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
@@ -1483,11 +1483,11 @@ export function Academic() {
 
       {printOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4"
           onClick={() => setPrintOpen(false)}
         >
           <div
-            className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">

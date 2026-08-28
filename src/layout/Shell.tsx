@@ -124,6 +124,24 @@ export function Shell() {
   const pageTitle = pageTitles[location.pathname] || 'Student portal';
 
   useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
     if (!userMenuOpen) return;
     const onPointerDown = (e: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
@@ -157,9 +175,21 @@ export function Shell() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <aside className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white flex flex-col shadow-xl lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:w-[260px] lg:h-screen">
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10">
-          <Link to="/" className="flex min-w-0 flex-1 items-center gap-3 p-5" onClick={() => setMenuOpen(false)}>
+      {menuOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-slate-900/50 lg:hidden"
+          aria-label="Close menu"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-[min(18rem,88vw)] flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white shadow-xl transition-transform duration-200 ease-out lg:w-[260px] lg:translate-x-0 ${
+          menuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 pt-[env(safe-area-inset-top)]">
+          <Link to="/" className="flex min-w-0 flex-1 items-center gap-3 p-4 sm:p-5" onClick={() => setMenuOpen(false)}>
             <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Bells crest" className="h-11 w-11 shrink-0 rounded-full bg-white ring-2 ring-white/20" />
             <div className="min-w-0">
               <div className="truncate font-semibold text-sm tracking-wide">Student portal</div>
@@ -168,15 +198,14 @@ export function Shell() {
           </Link>
           <button
             type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            className="mr-3 rounded-lg p-2 text-slate-300 hover:bg-white/10 lg:hidden"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(false)}
+            className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white lg:hidden touch-manipulation"
+            aria-label="Close menu"
           >
-            {menuOpen ? <CloseIcon /> : <MenuIcon />}
+            <CloseIcon />
           </button>
         </div>
-        <nav className={`${menuOpen ? 'block' : 'hidden'} lg:flex lg:flex-col flex-1 min-h-0 overflow-y-auto p-3 space-y-0.5 text-sm border-b border-white/10 lg:border-b-0`}>
+        <nav className="flex flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain p-3 space-y-0.5 text-sm">
           {items.map((i) => (
             <NavLink
               key={i.to}
@@ -184,7 +213,7 @@ export function Shell() {
               end={i.to === '/'}
               onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 transition ${
+                `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 touch-manipulation transition ${
                   isActive
                     ? 'bg-white text-slate-900 font-medium shadow-sm'
                     : 'text-slate-300 hover:bg-white/10 hover:text-white'
@@ -196,7 +225,7 @@ export function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="hidden lg:block shrink-0 p-4 border-t border-white/10">
+        <div className="shrink-0 p-4 border-t border-white/10 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
             <PassportPhoto
               applicationId={auth?.application_id}
@@ -217,29 +246,40 @@ export function Shell() {
         </div>
       </aside>
       <div className="min-w-0 flex flex-col lg:ml-[260px] lg:min-h-screen">
-        <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between gap-3 px-4 md:px-8 py-3 sm:py-0 sm:h-16">
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400 hidden sm:block">
-              {auth?.is_student ? 'Student portal' : 'Admissions'}
-            </p>
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">{pageTitle}</h2>
-            {sessionLabel && (
-              <p className="text-xs text-slate-500 sm:hidden mt-0.5 flex items-center gap-1.5">
-                <CalendarIcon />
-                {sessionLabel}
+        <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 md:px-8 py-2.5 sm:py-0 sm:h-16 pt-[max(0.625rem,env(safe-area-inset-top))]">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden touch-manipulation"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+            >
+              {menuOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-400 hidden sm:block">
+                {auth?.is_student ? 'Student portal' : 'Admissions'}
               </p>
-            )}
+              <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">{pageTitle}</h2>
+              {sessionLabel && (
+                <p className="text-[11px] sm:text-xs text-slate-500 sm:hidden mt-0.5 flex items-center gap-1.5 min-w-0">
+                  <CalendarIcon />
+                  <span className="truncate">{sessionLabel}</span>
+                </p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {sessionLabel && (
               <div
-                className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200/80 bg-gradient-to-r from-slate-50 to-sky-50/90 px-3.5 py-1.5 text-xs shadow-sm"
+                className="hidden sm:flex max-w-[min(28rem,42vw)] items-center gap-2 rounded-full border border-slate-200/80 bg-gradient-to-r from-slate-50 to-sky-50/90 px-3.5 py-1.5 text-xs shadow-sm"
                 title={auth?.current_session_kind === 'application'
                   ? 'Current application session'
                   : 'Current admission session and semester'}
               >
                 <CalendarIcon />
-                <span className="font-semibold text-slate-800">{sessionLabel}</span>
+                <span className="font-semibold text-slate-800 truncate">{sessionLabel}</span>
               </div>
             )}
             <NotificationBell />
@@ -247,7 +287,7 @@ export function Shell() {
             <button
               type="button"
               onClick={() => setUserMenuOpen((open) => !open)}
-              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-sky-100 text-sky-700 text-xs font-semibold ring-offset-2 hover:bg-sky-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition"
+              className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center overflow-hidden rounded-full bg-sky-100 text-sky-700 text-xs font-semibold ring-offset-2 hover:bg-sky-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition touch-manipulation"
               aria-label="Account menu"
               aria-expanded={userMenuOpen}
               aria-haspopup="menu"
@@ -256,14 +296,14 @@ export function Shell() {
                 applicationId={auth?.application_id}
                 src={auth?.nin_identity?.photo_url || storageUrl(auth?.nin_identity?.photo_path) || null}
                 alt=""
-                className="h-8 w-8 rounded-full object-cover"
+                className="h-10 w-10 sm:h-8 sm:w-8 rounded-full object-cover"
                 placeholder={initials(auth?.user?.name)}
               />
             </button>
             {userMenuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl border border-slate-200 bg-white py-1 shadow-lg z-30"
+                className="absolute right-0 mt-2 w-[min(14rem,calc(100vw-1.5rem))] origin-top-right rounded-xl border border-slate-200 bg-white py-1 shadow-lg z-30"
               >
                 <div className="border-b border-slate-100 px-3 py-2.5">
                   <div className="truncate text-sm font-medium text-slate-900">{auth?.user?.name}</div>
@@ -273,7 +313,7 @@ export function Shell() {
                   to="/change-password"
                   role="menuitem"
                   onClick={() => setUserMenuOpen(false)}
-                  className="flex w-full items-center px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                  className="flex min-h-11 w-full items-center px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
                 >
                   Change password
                 </Link>
@@ -281,7 +321,7 @@ export function Shell() {
                   type="button"
                   role="menuitem"
                   onClick={logout}
-                  className="flex w-full items-center px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                  className="flex min-h-11 w-full items-center px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
                 >
                   Sign out
                 </button>
@@ -290,7 +330,7 @@ export function Shell() {
             </div>
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+        <main className="flex-1 px-3 py-4 sm:p-4 md:p-8 overflow-x-hidden pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="mx-auto max-w-5xl">
             <Outlet />
           </div>

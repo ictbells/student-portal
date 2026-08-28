@@ -38,7 +38,7 @@ function printTermKey(term: { academic_session_id?: number | null; session_label
   return String(term.academic_session_id ?? term.session_label ?? '');
 }
 
-const selectClass = 'min-w-[160px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800';
+const selectClass = 'w-full min-w-0 sm:w-auto sm:min-w-[10rem] rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800';
 
 function courseUnits(row: any) {
   return Number(row?.course?.units || row?.offering?.course?.units || 0);
@@ -398,7 +398,7 @@ export default function CourseRegistration() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
             <div>
               <h2 className="font-semibold text-slate-900">{termLabel}</h2>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="text-sm text-slate-500 mt-0.5 break-words">
                 Window: <span className="font-medium text-slate-700">{windowStatus}</span>
                 {' · '}Roster: <span className="font-medium text-slate-700">{String(reg.roster_status || 'not started').replaceAll('_', ' ')}</span>
                 {' · '}Tuition: <span className="font-medium text-slate-700">{Math.round(reg.tuition_percent || 0)}%</span>
@@ -468,7 +468,7 @@ export default function CourseRegistration() {
               <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
                 <h3 className="font-medium text-slate-800">Registered courses</h3>
                 {canPrint && (
-                  <div className="flex flex-wrap items-end gap-2">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
                     {printTermSelects('print', false)}
                     <Button
                       type="button"
@@ -640,14 +640,14 @@ export default function CourseRegistration() {
 
       {printOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
           onClick={() => !printLoading && closePrint()}
           role="dialog"
           aria-modal="true"
           aria-label="Course registration printout"
         >
           <div
-            className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="w-full max-w-4xl max-h-[92dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 px-4 py-3 bg-slate-50">
@@ -655,7 +655,7 @@ export default function CourseRegistration() {
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Document</p>
                 <h3 className="font-semibold text-slate-900 truncate">Course registration</h3>
               </div>
-              <div className="flex flex-wrap items-end gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
                 {printTermSelects('print-modal', true)}
                 {printHtml && (
                   <>
@@ -682,7 +682,7 @@ export default function CourseRegistration() {
                   id="registration-print-frame"
                   title="Course registration"
                   srcDoc={printHtml}
-                  className="w-full h-[min(70vh,720px)] border-0 bg-white"
+                  className="w-full h-[min(60dvh,720px)] sm:h-[min(70vh,720px)] border-0 bg-white"
                 />
               )}
             </div>

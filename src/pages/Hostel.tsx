@@ -288,7 +288,7 @@ export default function Hostel() {
                   <Button
                     type="button"
                     onClick={openSelectModal}
-                    className="bg-white text-slate-900 hover:bg-slate-100 shadow-sm"
+                    className="w-full sm:w-auto bg-white text-slate-900 hover:bg-slate-100 shadow-sm"
                   >
                     Request a bed
                   </Button>
@@ -406,17 +406,17 @@ export default function Hostel() {
 
       {selectOpen && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60"
           onClick={closeSelectModal}
           role="dialog"
           aria-modal="true"
           aria-labelledby="select-bed-title"
         >
           <div
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200"
+            className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
               <div>
                 <h3 id="select-bed-title" className="font-semibold text-slate-900">Select a hostel bed</h3>
                 <p className="text-sm text-slate-500 mt-0.5">
@@ -437,7 +437,7 @@ export default function Hostel() {
                 Close
               </button>
             </div>
-            <div className="p-5 space-y-5">
+            <div className="p-4 sm:p-5 space-y-5">
               <div>
                 <label htmlFor="hostel-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Hostel</label>
                 {hostels.length === 0 ? (
@@ -497,7 +497,7 @@ export default function Hostel() {
                   {rooms.length === 0 ? (
                     <EmptyState message="This block has no rooms yet." />
                   ) : (
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                       {rooms.map((room: any) => {
                         const occupied = !room.selectable;
                         const selected = selectedRoomId === room.id;
@@ -520,7 +520,7 @@ export default function Hostel() {
                               setSelectedRoomId(room.id);
                               setPickedBed(null);
                             }}
-                            className={`rounded-lg border px-2 py-2.5 text-sm font-semibold tabular-nums transition ${
+                            className={`min-h-[4.25rem] rounded-lg border px-2 py-2.5 text-sm font-semibold tabular-nums transition ${
                               selected
                                 ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200'
                                 : occupied
@@ -570,7 +570,7 @@ export default function Hostel() {
                             room: selectedRoom.code || selectedRoom.number,
                             hostel: selectedHostel?.name || '',
                           })}
-                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                          className={`min-h-11 rounded-lg border px-3 py-2 text-xs font-medium transition ${
                             selected
                               ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
                               : bedTaken
@@ -586,12 +586,12 @@ export default function Hostel() {
                 </div>
               )}
 
-              <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1 pb-[max(0px,env(safe-area-inset-bottom))]">
                 <Button
                   type="button"
                   onClick={closeSelectModal}
                   disabled={selecting}
-                  className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  className="w-full sm:w-auto border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 >
                   Cancel
                 </Button>
@@ -599,7 +599,7 @@ export default function Hostel() {
                   type="button"
                   disabled={selecting || !pickedBed}
                   onClick={selectBed}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
                 >
                   {selecting ? <Spinner label="Submitting…" className="text-white" /> : pickedBed ? `Request bed ${pickedBed.label}` : 'Request bed'}
                 </Button>
