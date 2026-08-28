@@ -67,6 +67,24 @@ function formatScore(value: unknown): string {
   return Number.isFinite(n) ? String(n) : String(value);
 }
 
+function numericScore(row: CourseRow): number | null {
+  if (row.score != null && row.score !== '') {
+    const n = Number(row.score);
+    return Number.isFinite(n) ? n : null;
+  }
+  const hasCa = row.ca_score != null && row.ca_score !== '';
+  const hasExam = row.exam_score != null && row.exam_score !== '';
+  if (!hasCa && !hasExam) return null;
+  const total = Number(hasCa ? row.ca_score : 0) + Number(hasExam ? row.exam_score : 0);
+  return Number.isFinite(total) ? total : null;
+}
+
+function displayScore(row: CourseRow): string {
+  if (row.result_status !== 'released') return 'Pending';
+  const total = numericScore(row);
+  return total == null ? '—' : formatScore(total);
+}
+
 function pickDefaults(sessions: SessionOption[]) {
   const currentSession = sessions.find((session) => session.is_current) || sessions[sessions.length - 1];
   const terms = currentSession?.terms || [];
@@ -313,8 +331,6 @@ export default function UnsignedTranscript() {
                   <th className={thClass}>Code</th>
                   <th className={thClass}>Title</th>
                   <th className={thClass}>Units</th>
-                  <th className={thClass}>CA</th>
-                  <th className={thClass}>Exam</th>
                   <th className={thClass}>Score</th>
                   <th className={thClass}>Grade</th>
                 </tr>
@@ -330,14 +346,22 @@ export default function UnsignedTranscript() {
                         {row.is_carry_over && <span className="ml-2 text-[11px] font-medium uppercase tracking-wide text-amber-700">Carry-over</span>}
                       </td>
                       <td className={tdClass}>{row.course?.units ?? '—'}</td>
-                      <td className={tdClass}>{released ? formatScore(row.ca_score) : '—'}</td>
-                      <td className={tdClass}>{released ? formatScore(row.exam_score) : '—'}</td>
-                      <td className={tdClass}>{released ? formatScore(row.score) : 'Pending'}</td>
+                      <td className={tdClass}>{displayScore(row)}</td>
                       <td className={`${tdClass} font-medium`}>{released ? (row.letter || '—') : 'Pending'}</td>
                     </tr>
                   );
                 })}
               </tbody>
+              <tfoot>
+                <tr className="border-t border-slate-200 bg-slate-50">
+                  <td className={`${tdClass} font-semibold`} colSpan={2}>Total</td>
+                  <td className={`${tdClass} font-semibold`}>
+                    {(term.rows || []).reduce((sum, row) => sum + Number(row.course?.units || 0), 0)}
+                  </td>
+                  <td className={tdClass} />
+                  <td className={tdClass} />
+                </tr>
+              </tfoot>
             </table>
           </div>
         </Card>
