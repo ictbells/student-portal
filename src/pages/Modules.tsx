@@ -1287,6 +1287,23 @@ export function Documents() {
   );
 }
 
+function formatGpa(value: unknown): string {
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(2) : String(value);
+}
+
+function formatCourseResult(row: { letter?: string | null; score?: number | string | null } | null | undefined): string {
+  if (!row) return '—';
+  const letter = String(row.letter || '').trim();
+  const score = row.score != null && row.score !== '' ? Number(row.score) : NaN;
+  const scoreLabel = Number.isFinite(score) ? String(score) : '';
+  if (letter && scoreLabel) return `${letter} · ${scoreLabel}`;
+  if (letter) return letter;
+  if (scoreLabel) return scoreLabel;
+  return '—';
+}
+
 export function Academic() {
   const { auth } = useAuth();
   const toast = useToast();
@@ -1417,12 +1434,12 @@ export function Academic() {
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">CGPA</p>
-              <p className="text-2xl font-semibold text-sky-700 mt-1">{tr.cgpa ?? tr.gpa ?? '—'}</p>
+              <p className="text-2xl font-semibold text-sky-700 mt-1">{formatGpa(tr.cgpa ?? tr.gpa)}</p>
             </div>
             {Array.isArray(tr.terms) && tr.terms.length > 0 && (
               <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Latest term GPA</p>
-                <p className="text-2xl font-semibold text-slate-800 mt-1">{tr.terms[tr.terms.length - 1]?.gpa ?? '—'}</p>
+                <p className="text-2xl font-semibold text-slate-800 mt-1">{formatGpa(tr.terms[tr.terms.length - 1]?.gpa)}</p>
                 <p className="text-xs text-slate-500 mt-1">
                   {tr.terms[tr.terms.length - 1]?.session_label} {tr.terms[tr.terms.length - 1]?.name}
                 </p>
@@ -1436,7 +1453,7 @@ export function Academic() {
             <li key={e.id} className="py-2.5 flex justify-between gap-3">
               <span>{e.offering?.course?.code} {e.offering?.course?.title}</span>
               <span className="font-medium text-slate-700">
-                {e.grade?.letter || (e.pending_grade ? 'Pending' : '—')}
+                {e.pending_grade ? 'Pending' : formatCourseResult(e.grade)}
               </span>
             </li>
           ))}
@@ -1448,13 +1465,13 @@ export function Academic() {
               <div key={term.academic_term_id} className="rounded-lg border border-slate-100 p-3">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="font-medium">{term.session_label} · {term.name}</span>
-                  <span>GPA {term.gpa}</span>
+                  <span>GPA {formatGpa(term.gpa)}</span>
                 </div>
                 <ul className="text-sm divide-y divide-slate-50">
                   {(term.rows || []).map((row: any) => (
                     <li key={row.id} className="py-1.5 flex justify-between">
                       <span>{row.course?.code} {row.course?.title}</span>
-                      <span>{row.letter || '—'}</span>
+                      <span>{formatCourseResult(row)}</span>
                     </li>
                   ))}
                 </ul>
