@@ -73,10 +73,15 @@ jobs:
           VITE_BASE: ${{ vars.VITE_BASE }}
         run: |
           if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
+          if [[ -z "${VITE_API_URL:-}" ]]; then
+            echo "Set VITE_API_URL on the GitHub environment." >&2
+            exit 1
+          fi
           if [[ "$TARGET" == "aws" ]]; then
             export VITE_BASE=/
             echo "AWS CloudFront student host requires VITE_BASE=/"
           fi
+          npm run typecheck
           npm run build
 
       - name: Configure AWS (OIDC)

@@ -576,6 +576,12 @@ export function Invoices() {
         </Alert>
       )}
 
+      {!auth?.is_student && auth?.lifecycle_stage === 'acceptance_paid' && (
+        <Alert tone="info">
+          School fees open after physical clearance. Come to campus with your original documents; staff will clear you and then you can pay tuition.
+        </Alert>
+      )}
+
       {auth?.is_student && (
         <Card className="p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

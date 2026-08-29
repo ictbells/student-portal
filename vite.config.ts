@@ -30,10 +30,16 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   /** Local default `/student/`; CloudFront student host uses `VITE_BASE=/`. */
   const base = env.VITE_BASE || process.env.VITE_BASE || '/student/';
+  if (mode === 'production' && !env.VITE_API_URL) {
+    throw new Error('VITE_API_URL is required to build the student portal for production.');
+  }
 
   return {
     base,
     plugins: [studentBaseRedirect(base), react(), tailwindcss()],
+    build: {
+      sourcemap: false,
+    },
     server: {
       port: 5174,
       proxy: {
