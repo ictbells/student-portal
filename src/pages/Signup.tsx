@@ -7,7 +7,7 @@ import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import AdmissionGuidePopup from '../components/AdmissionGuidePopup';
 import { Alert, Button, Input, Label, PasswordInput, Spinner } from '../components/ui';
 import { PasswordHints } from '../components/passwordHints';
-import { isValidPhone, PHONE_ERROR, PHONE_HINT } from '../lib/phone';
+import { ALTERNATE_PHONE_ERROR, ALTERNATE_PHONE_HINT, isValidPhone, PHONE_ERROR } from '../lib/phone';
 
 type IdentityPreview = {
   nin: string;
@@ -182,6 +182,12 @@ export default function Signup() {
     }
     if (password !== confirm) {
       const message = 'Passwords do not match.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (!alternatePhone.trim()) {
+      const message = ALTERNATE_PHONE_ERROR;
       setFormError(message);
       toast.error(message);
       return;
@@ -417,8 +423,8 @@ export default function Signup() {
                 <Input id="phone" type="tel" value={phone || identity?.phone || ''} readOnly className="bg-slate-50 text-slate-700" placeholder="Not on this NIN record" />
                 <p className="mt-1 text-xs text-slate-500">
                   {(phone || identity?.phone)
-                    ? 'This number comes from your NIN record and cannot be changed here.'
-                    : 'This NIN record did not include a phone number. Enter an alternate number below.'}
+                    ? 'This number comes from your NIN record and cannot be changed here. You still need an alternate number below.'
+                    : 'This NIN record did not include a phone number. An alternate number is still required below.'}
                 </p>
               </div>
               <div>
@@ -431,7 +437,7 @@ export default function Signup() {
                   required
                   placeholder="0803 123 4567 or +1 202 555 0100"
                 />
-                <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
+                <p className="mt-1 text-xs text-slate-500">{ALTERNATE_PHONE_HINT}</p>
               </div>
               <div>
                 <Label htmlFor="password" required>Password</Label>

@@ -1,8 +1,14 @@
 export const PHONE_HINT =
   'Nigerian (0803 123 4567) or international (+1 202 555 0100).';
 
+export const ALTERNATE_PHONE_HINT =
+  'Required even if your NIN already has a phone number. Nigerian (0803 123 4567) or international (+1 202 555 0100).';
+
 export const PHONE_ERROR =
   'Enter a valid Nigerian or international phone number (e.g. 0803 123 4567 or +1 202 555 0100).';
+
+export const ALTERNATE_PHONE_ERROR =
+  'Enter an alternate phone number. This is required even if your NIN already has a phone number.';
 
 export function normalizePhone(raw?: string | null): string | null {
   const compact = String(raw || '')

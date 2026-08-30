@@ -8,7 +8,7 @@ import { useToast } from '../components/toast';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { Alert, Button, Card, Input, Label, RequiredMark, Spinner } from '../components/ui';
 import { storageUrl } from '../lib/storage';
-import { isValidPhone, PHONE_ERROR, PHONE_HINT } from '../lib/phone';
+import { ALTERNATE_PHONE_ERROR, ALTERNATE_PHONE_HINT, isValidPhone, PHONE_ERROR } from '../lib/phone';
 import { requiredDocumentsFor } from '../constants/requiredDocuments';
 
 const OLEVEL_GRADES = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
@@ -535,9 +535,16 @@ export default function Wizard() {
       toast.error(`The four subject scores total ${total}, which must match the aggregate.`);
       return;
     }
-    if (steps[idx].key === 'application_form' && !isValidPhone(payload.alternate_phone)) {
-      toast.error(PHONE_ERROR);
-      return;
+    if (steps[idx].key === 'application_form') {
+      const alternate = String(payload.alternate_phone || '').trim();
+      if (!alternate) {
+        toast.error(ALTERNATE_PHONE_ERROR);
+        return;
+      }
+      if (!isValidPhone(alternate)) {
+        toast.error(PHONE_ERROR);
+        return;
+      }
     }
     if (steps[idx].key === 'programme_selection' && !Number(payload.first_choice_program_id)) {
       toast.error('Select a first-choice programme before continuing.');
@@ -1287,8 +1294,8 @@ export default function Wizard() {
                 <Input id="phone" type="tel" readOnly className="bg-slate-50 text-slate-700" value={payload.phone || auth?.user?.phone || ''} placeholder="Not on this NIN record" />
                 <p className="mt-1 text-xs text-slate-500">
                   {(payload.phone || auth?.user?.phone)
-                    ? 'This number comes from your NIN record and cannot be changed here.'
-                    : 'This NIN record did not include a phone number. Enter an alternate number below.'}
+                    ? 'This number comes from your NIN record and cannot be changed here. You still need an alternate number below.'
+                    : 'This NIN record did not include a phone number. An alternate number is still required below.'}
                 </p>
               </div>
               <div>
@@ -1298,9 +1305,10 @@ export default function Wizard() {
                   type="tel"
                   value={payload.alternate_phone || auth?.user?.alternate_phone || ''}
                   onChange={(e) => setField('alternate_phone', e.target.value)}
+                  required
                   placeholder="0803 123 4567 or +1 202 555 0100"
                 />
-                <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
+                <p className="mt-1 text-xs text-slate-500">{ALTERNATE_PHONE_HINT}</p>
               </div>
               <div>
                 <Label htmlFor="address" required>Address</Label>
