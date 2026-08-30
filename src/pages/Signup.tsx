@@ -443,30 +443,20 @@ export default function Signup() {
                   {identity?.gender ? ` · ${identity.gender}` : ''}
                   {identity?.date_of_birth ? ` · ${formatDate(identity.date_of_birth)}` : ''}
                 </p>
+                <p className="mt-2 text-sm text-slate-700">
+                  Phone from NIN:{' '}
+                  <span className="font-medium">{phone || identity?.phone || 'Not on this NIN record'}</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {(phone || identity?.phone)
+                    ? 'Locked from your NIN. Enter a different alternate number below.'
+                    : 'NIN did not return a phone. An alternate number is still required below.'}
+                </p>
               </div>
               <div>
                 <Label htmlFor="email" required>Email</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
                 <p className="mt-1 text-xs text-slate-500">Used for notifications and password reset.</p>
-              </div>
-              <div>
-                <Label htmlFor="nin_phone">Phone from NIN</Label>
-                <Input
-                  id="nin_phone"
-                  name="nin_phone"
-                  type="text"
-                  inputMode="tel"
-                  value={phone || identity?.phone || ''}
-                  readOnly
-                  autoComplete="off"
-                  className="bg-slate-50 text-slate-700"
-                  placeholder="Not on this NIN record"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  {(phone || identity?.phone)
-                    ? 'This number comes from your NIN record and cannot be changed here. You still need an alternate number below.'
-                    : 'This NIN record did not include a phone number. An alternate number is still required below.'}
-                </p>
               </div>
               <div>
                 <Label htmlFor="alternate_phone" required>Alternate phone</Label>

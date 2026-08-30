@@ -6,7 +6,7 @@ import { Breadcrumb, PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { useToast } from '../components/toast';
 import { formatStage, liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
-import { Alert, Button, Card, Spinner } from '../components/ui';
+import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
@@ -22,6 +22,34 @@ function statusTone(stage?: string) {
 
 type PrintDoc = { title: string; label: string; html: string };
 
+type RefereeDraft = {
+  name: string;
+  email: string;
+  institution: string;
+  position: string;
+  status?: string;
+  inviteId?: number;
+};
+
+function refereesFromApp(app: any): RefereeDraft[] {
+  const step = app?.steps?.find((s: any) => s.step_key === 'pg_referees');
+  const rows = Array.isArray(step?.payload?.referees) ? step.payload.referees : [];
+  const invites = Array.isArray(app?.referee_invites) ? app.referee_invites : [];
+  const source = rows.length ? rows : [{}, {}];
+  return source.map((row: any, index: number) => {
+    const invite = invites.find((item: any) => Number(item.position) === index + 1)
+      || invites.find((item: any) => String(item.email || '').toLowerCase() === String(row.email || '').toLowerCase());
+    return {
+      name: row.name || invite?.name || '',
+      email: row.email || invite?.email || '',
+      institution: row.institution || '',
+      position: row.position || '',
+      status: invite?.status,
+      inviteId: invite?.id,
+    };
+  });
+}
+
 export default function Status() {
   const { auth, refresh } = useAuth();
   const toast = useToast();
@@ -30,6 +58,8 @@ export default function Status() {
   const [printDoc, setPrintDoc] = useState<PrintDoc | null>(null);
   const [printLoading, setPrintLoading] = useState(false);
   const [payingAcceptance, setPayingAcceptance] = useState(false);
+  const [referees, setReferees] = useState<RefereeDraft[]>([]);
+  const [savingReferees, setSavingReferees] = useState(false);
 
   useEffect(() => {
     if (!auth?.application_id) {
@@ -37,7 +67,10 @@ export default function Status() {
       return;
     }
     api.get(`/api/applications/${auth.application_id}`)
-      .then((r) => setApp(r.data))
+      .then((r) => {
+        setApp(r.data);
+        setReferees(refereesFromApp(r.data));
+      })
       .catch(() => setApp(null))
       .finally(() => setLoading(false));
   }, [auth?.application_id]);
@@ -121,6 +154,31 @@ export default function Status() {
     }
   };
 
+  const saveReferees = async () => {
+    if (!app?.id) return;
+    setSavingReferees(true);
+    try {
+      const { data } = await api.post(`/api/applications/${app.id}/steps`, {
+        step_key: 'pg_referees',
+        payload: {
+          referees: referees.map((row) => ({
+            name: row.name,
+            email: row.email,
+            institution: row.institution,
+            position: row.position,
+          })),
+        },
+      });
+      setApp(data);
+      setReferees(refereesFromApp(data));
+      toast.success('Referee details saved. A recommendation invite was sent to any new email address.');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || e.response?.data?.errors?.['payload.referees']?.[0] || 'Could not update referees.');
+    } finally {
+      setSavingReferees(false);
+    }
+  };
+
   const reviews = useMemo(() => {
     const list = Array.isArray(app?.reviews) ? [...app.reviews] : [];
     return list.sort((a, b) => {
@@ -147,6 +205,9 @@ export default function Status() {
       value: app?.program?.name || 'Not selected yet',
     },
   ]), [stage, auth?.is_student, app]);
+
+  const canEditReferees = !!app?.steps?.some((s: any) => s.step_key === 'pg_referees')
+    && !['awaiting_application_fee', 'fee_paid', 'form_in_progress', 'rejected', 'withdrawn', 'matriculated'].includes(stage || '');
 
   if (loading) {
     return (
@@ -303,6 +364,70 @@ export default function Status() {
                 currentIndex={Math.min(journeyIndex, STUDENT_JOURNEY_STEPS.length - 1)}
                 isStepComplete={(index) => journeyComplete || index < journeyIndex}
               />
+            </Card>
+          )}
+
+          {canEditReferees && referees.length > 0 && (
+            <Card className="space-y-4">
+              <div>
+                <h2 className="font-semibold text-slate-900">Referees</h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  You can update a referee after submitting. Saving sends a new recommendation link to the updated email. Letters already uploaded cannot be changed.
+                </p>
+              </div>
+              <div className="space-y-4">
+                {referees.map((row, index) => {
+                  const locked = row.status === 'submitted';
+                  return (
+                    <div key={row.inviteId || index} className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4">
+                      <div className="sm:col-span-2 flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-slate-800">Referee {index + 1}</p>
+                        <span className="text-xs capitalize text-slate-500">{row.status || 'pending'}</span>
+                      </div>
+                      <div>
+                        <Label required>Name</Label>
+                        <Input
+                          value={row.name}
+                          disabled={locked}
+                          onChange={(e) => setReferees((prev) => prev.map((item, i) => i === index ? { ...item, name: e.target.value } : item))}
+                        />
+                      </div>
+                      <div>
+                        <Label required>Email</Label>
+                        <Input
+                          type="email"
+                          value={row.email}
+                          disabled={locked}
+                          onChange={(e) => setReferees((prev) => prev.map((item, i) => i === index ? { ...item, email: e.target.value } : item))}
+                        />
+                      </div>
+                      <div>
+                        <Label required>Institution</Label>
+                        <Input
+                          value={row.institution}
+                          disabled={locked}
+                          onChange={(e) => setReferees((prev) => prev.map((item, i) => i === index ? { ...item, institution: e.target.value } : item))}
+                        />
+                      </div>
+                      <div>
+                        <Label required>Position</Label>
+                        <Input
+                          value={row.position}
+                          disabled={locked}
+                          onChange={(e) => setReferees((prev) => prev.map((item, i) => i === index ? { ...item, position: e.target.value } : item))}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <Button
+                onClick={saveReferees}
+                disabled={savingReferees || referees.every((row) => row.status === 'submitted')}
+                className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+              >
+                {savingReferees ? <Spinner label="Saving…" /> : 'Save referee details'}
+              </Button>
             </Card>
           )}
 

@@ -32,7 +32,7 @@ export function Button({ className = '', ...props }: ButtonHTMLAttributes<HTMLBu
 export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-        className={`w-full border border-[#e4ddd0] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-crest-gold/25 focus:border-crest-gold transition ${className}`}
+        className={`w-full border border-[#e4ddd0] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-crest-gold/25 focus:border-crest-gold transition disabled:bg-slate-100 disabled:text-slate-700 disabled:cursor-not-allowed disabled:shadow-none disabled:focus:ring-0 disabled:focus:border-[#e4ddd0] read-only:bg-slate-100 read-only:text-slate-700 read-only:cursor-not-allowed read-only:shadow-none read-only:focus:ring-0 ${className}`}
       {...props}
     />
   );

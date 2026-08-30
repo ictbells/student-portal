@@ -187,6 +187,18 @@ const DE_CLASSIFICATIONS = [
 const DE_ENTRY_LEVELS = ['200', '300'];
 const TRANSFER_ENTRY_LEVELS = ['200', '300', '400'];
 
+function emptyPriorDegree() {
+  return {
+    degree_title: '',
+    institution: '',
+    field_of_study: '',
+    class: 'second_lower',
+    award_level: 'bachelor',
+    year_awarded: '',
+    country: 'Nigeria',
+  };
+}
+
 function emptyDirectEntry(jamb?: string) {
   return {
     jamb_de_number: jamb || '',
@@ -292,6 +304,20 @@ function collegeNameOf(program: any): string {
 
 function departmentNameOf(program: any): string {
   return program?.department?.name || '';
+}
+
+function LockedProgrammeField({ id, value }: { id: string; value: string }) {
+  return (
+    <Input
+      id={id}
+      readOnly
+      disabled
+      tabIndex={-1}
+      aria-readonly="true"
+      value={value}
+      placeholder="Filled from programme"
+    />
+  );
 }
 
 function withProgrammeChoiceIds(raw: any, programList: any[]) {
@@ -495,7 +521,7 @@ export default function Wizard() {
         nysc_status: 'completed',
         professional_qualifications: [],
         ...nextPayload,
-        prior_degrees: nextPayload.prior_degrees?.length ? nextPayload.prior_degrees : [{ degree_title: '', institution: '', field_of_study: '', class: 'second_lower', award_level: 'bachelor', year_awarded: '', country: 'Nigeria' }],
+        prior_degrees: nextPayload.prior_degrees?.length ? nextPayload.prior_degrees : [emptyPriorDegree()],
       };
     }
     if (steps[stepIndex].key === 'pg_research') {
@@ -1539,9 +1565,24 @@ export default function Wizard() {
 
         {step.key === 'pg_background' && (
           <div className="space-y-6">
-            <FormSection title="First degree" description="List your qualifying degree. Add another row for a second award (e.g. Masters).">
+            <FormSection title="Prior degrees" description="List your qualifying degree. Add another row for a second award (e.g. Masters). Extra rows can be removed.">
               {(payload.prior_degrees || []).map((row: any, index: number) => (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4">
+                  <div className="sm:col-span-2 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-slate-700">{index === 0 ? 'Qualifying degree' : `Additional degree ${index + 1}`}</p>
+                    {(payload.prior_degrees || []).length > 1 && (
+                      <Button
+                        type="button"
+                        onClick={() => setPayload({
+                          ...payload,
+                          prior_degrees: payload.prior_degrees.filter((_: unknown, i: number) => i !== index),
+                        })}
+                        className="w-auto text-rose-700 hover:bg-rose-50"
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                   <div>
                     <Label required>Degree title</Label>
                     <Input value={row.degree_title || ''} onChange={(e) => {
@@ -1606,7 +1647,7 @@ export default function Wizard() {
                   </div>
                 </div>
               ))}
-              <Button type="button" onClick={() => setPayload({ ...payload, prior_degrees: [...(payload.prior_degrees || []), { degree_title: '', institution: '', class: 'second_lower', award_level: 'bachelor', year_awarded: '' }] })} className="bg-white border border-slate-200">
+              <Button type="button" onClick={() => setPayload({ ...payload, prior_degrees: [...(payload.prior_degrees || []), emptyPriorDegree()] })} className="bg-white border border-slate-200">
                 Add another degree
               </Button>
             </FormSection>
@@ -1621,12 +1662,29 @@ export default function Wizard() {
                   </select>
                 </div>
                 <div>
-                  <Label required={(payload.nysc_status || 'completed') !== 'not_applicable'}>Certificate / exemption number</Label>
-                  <Input value={payload.nysc_number || ''} onChange={(e) => setPayload({ ...payload, nysc_number: e.target.value })} />
+                  <Label htmlFor="nysc_number" required={(payload.nysc_status || 'completed') !== 'not_applicable'}>Certificate / exemption number</Label>
+                  <Input
+                    id="nysc_number"
+                    maxLength={12}
+                    placeholder="Max 12 characters"
+                    value={payload.nysc_number || ''}
+                    onChange={(e) => setPayload({ ...payload, nysc_number: e.target.value.slice(0, 12) })}
+                  />
                 </div>
                 <div>
-                  <Label>Year</Label>
-                  <Input value={payload.nysc_year || ''} onChange={(e) => setPayload({ ...payload, nysc_year: e.target.value })} />
+                  <Label htmlFor="nysc_year">Year</Label>
+                  <select
+                    id="nysc_year"
+                    className={selectClass}
+                    value={payload.nysc_year || ''}
+                    onChange={(e) => setPayload({ ...payload, nysc_year: e.target.value })}
+                  >
+                    <option value="">Select year</option>
+                    {payload.nysc_year && !OLEVEL_YEARS.includes(String(payload.nysc_year)) && (
+                      <option value={payload.nysc_year}>{payload.nysc_year}</option>
+                    )}
+                    {OLEVEL_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
                 </div>
                 <div>
                   <Label required={payload.nysc_status === 'exempted' || payload.nysc_status === 'not_applicable'}>Exemption / N/A reason</Label>
@@ -1699,7 +1757,7 @@ export default function Wizard() {
         )}
 
         {step.key === 'pg_referees' && (
-          <FormSection title="Referees" description="We will email each referee a private link to upload a recommendation letter. You can submit while letters are still pending.">
+          <FormSection title="Referees" description="We email each referee a private link to upload a recommendation letter. You can submit while letters are still pending. After submission, update a referee on Status — the new address receives the invite.">
             <div className="space-y-4">
               {(payload.referees || []).map((row: any, index: number) => (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-slate-200 p-4">
@@ -1750,8 +1808,8 @@ export default function Wizard() {
 
         {step.key === 'programme_selection' && (
           <FormSection title="Programme selection" description={app.entry_mode === 'jupeb'
-            ? 'Search and pick a programme at a JUPEB centre. College and department are filled from that programme. JUPEB applicants choose one programme only.'
-            : 'Search and pick a programme. College and department are filled from that programme. First choice is required; second choice is optional.'
+            ? 'Search and pick a programme at a JUPEB centre. College and department are filled from that programme and cannot be edited. JUPEB applicants choose one programme only.'
+            : 'Search and pick a programme. College and department are filled from that programme and cannot be edited. First choice is required; second choice is optional.'
           }>
             <div className="grid grid-cols-1 gap-8 max-w-xl">
               <div className="space-y-4">
@@ -1776,23 +1834,11 @@ export default function Wizard() {
                 </div>
                 <div>
                   <Label htmlFor="first_choice_college">College</Label>
-                  <input
-                    id="first_choice_college"
-                    readOnly
-                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
-                    value={collegeNameOf(firstChoiceProgram)}
-                    placeholder="Filled from programme"
-                  />
+                  <LockedProgrammeField id="first_choice_college" value={collegeNameOf(firstChoiceProgram)} />
                 </div>
                 <div>
                   <Label htmlFor="first_choice_department">Department</Label>
-                  <input
-                    id="first_choice_department"
-                    readOnly
-                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
-                    value={departmentNameOf(firstChoiceProgram)}
-                    placeholder="Filled from programme"
-                  />
+                  <LockedProgrammeField id="first_choice_department" value={departmentNameOf(firstChoiceProgram)} />
                 </div>
               </div>
 
@@ -1814,23 +1860,11 @@ export default function Wizard() {
                 </div>
                 <div>
                   <Label htmlFor="second_choice_college">College</Label>
-                  <input
-                    id="second_choice_college"
-                    readOnly
-                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
-                    value={collegeNameOf(secondChoiceProgram)}
-                    placeholder="Filled from programme"
-                  />
+                  <LockedProgrammeField id="second_choice_college" value={collegeNameOf(secondChoiceProgram)} />
                 </div>
                 <div>
                   <Label htmlFor="second_choice_department">Department</Label>
-                  <input
-                    id="second_choice_department"
-                    readOnly
-                    className={`${selectClass} bg-slate-50 text-slate-700 cursor-default`}
-                    value={departmentNameOf(secondChoiceProgram)}
-                    placeholder="Filled from programme"
-                  />
+                  <LockedProgrammeField id="second_choice_department" value={departmentNameOf(secondChoiceProgram)} />
                 </div>
               </div>
               )}
