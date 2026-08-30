@@ -21,6 +21,36 @@ type IdentityPreview = {
   live?: boolean;
 };
 
+function phoneFromPreview(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return '';
+  const root = payload as Record<string, unknown>;
+  const nested = root.data && typeof root.data === 'object' && !Array.isArray(root.data)
+    ? root.data as Record<string, unknown>
+    : null;
+  const sources = nested ? [root, nested] : [root];
+  const keys = ['phone', 'telephoneno', 'telephone', 'mobile', 'phone_number', 'phoneNumber'];
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source[key];
+      if (value != null && String(value).trim() !== '') {
+        return String(value).trim();
+      }
+    }
+  }
+  return '';
+}
+
+function identityFromPreview(payload: unknown): IdentityPreview {
+  const root = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const nested = root.data && typeof root.data === 'object' && !Array.isArray(root.data)
+    ? root.data as Record<string, unknown>
+    : null;
+  const identity = { ...root, ...(nested || {}) } as IdentityPreview;
+  const phone = phoneFromPreview(payload);
+  if (phone) identity.phone = phone;
+  return identity;
+}
+
 type OpenIntake = {
   id: number;
   name: string;
@@ -144,8 +174,9 @@ export default function Signup() {
         nin: nin.trim(),
         intake_id: selectedIntake.id,
       });
-      setIdentity(data);
-      setPhone(data.phone != null && String(data.phone).trim() ? String(data.phone).trim() : '');
+      const identity = identityFromPreview(data);
+      setIdentity(identity);
+      setPhone(identity.phone || '');
       setStep('register');
       toast.success(data.live === false
         ? 'NIN accepted in demo mode — this was not a live Prembly check.'
@@ -415,12 +446,22 @@ export default function Signup() {
               </div>
               <div>
                 <Label htmlFor="email" required>Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
                 <p className="mt-1 text-xs text-slate-500">Used for notifications and password reset.</p>
               </div>
               <div>
-                <Label htmlFor="phone">Phone from NIN</Label>
-                <Input id="phone" type="tel" value={phone || identity?.phone || ''} readOnly className="bg-slate-50 text-slate-700" placeholder="Not on this NIN record" />
+                <Label htmlFor="nin_phone">Phone from NIN</Label>
+                <Input
+                  id="nin_phone"
+                  name="nin_phone"
+                  type="text"
+                  inputMode="tel"
+                  value={phone || identity?.phone || ''}
+                  readOnly
+                  autoComplete="off"
+                  className="bg-slate-50 text-slate-700"
+                  placeholder="Not on this NIN record"
+                />
                 <p className="mt-1 text-xs text-slate-500">
                   {(phone || identity?.phone)
                     ? 'This number comes from your NIN record and cannot be changed here. You still need an alternate number below.'

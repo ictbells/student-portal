@@ -1290,8 +1290,18 @@ export default function Wizard() {
                 <Input id="jamb_display" readOnly className="bg-slate-50 text-slate-700" value={app?.jamb_registration || auth?.user?.jamb_registration || '—'} />
               </div>
               <div>
-                <Label htmlFor="phone">Phone from NIN</Label>
-                <Input id="phone" type="tel" readOnly className="bg-slate-50 text-slate-700" value={payload.phone || auth?.user?.phone || ''} placeholder="Not on this NIN record" />
+                <Label htmlFor="nin_phone">Phone from NIN</Label>
+                <Input
+                  id="nin_phone"
+                  name="nin_phone"
+                  type="text"
+                  inputMode="tel"
+                  readOnly
+                  autoComplete="off"
+                  className="bg-slate-50 text-slate-700"
+                  value={payload.phone || auth?.user?.phone || ''}
+                  placeholder="Not on this NIN record"
+                />
                 <p className="mt-1 text-xs text-slate-500">
                   {(payload.phone || auth?.user?.phone)
                     ? 'This number comes from your NIN record and cannot be changed here. You still need an alternate number below.'
