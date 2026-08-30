@@ -162,7 +162,9 @@ export default function Apply() {
       const { data } = await api.post('/api/applications', payload);
       setApp(data);
       await refresh();
-      toast.success('Application started');
+      toast.success(data.credentials_emailed
+        ? 'Application started. Check your email for your matric or application number and a new password.'
+        : 'Application started');
     } catch (e: any) {
       const errors = e.response?.data?.errors;
       toast.error(errors ? Object.values(errors).flat().join(' ') : e.response?.data?.message || 'Could not start application');
@@ -211,7 +213,7 @@ export default function Apply() {
     || storageUrl(biodataPhotoPath(app))
     || null;
 
-  if (auth?.is_student) {
+  if (auth?.is_student && !auth.can_apply_again) {
     return <Navigate to={auth.nin_verified ? '/' : '/verify-nin'} replace />;
   }
 

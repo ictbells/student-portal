@@ -185,6 +185,12 @@ export default function Home() {
     return (
       <div className="space-y-6">
         <StudentIdentityCard />
+        {auth?.can_apply_again && (
+          <Alert tone="info">
+            Your previous programme is complete. You may apply for another admission category.{' '}
+            <Link to="/apply" className="underline font-medium">Start application</Link>
+          </Alert>
+        )}
         <QuickLinks links={STUDENT_QUICK_LINKS} />
       </div>
     );

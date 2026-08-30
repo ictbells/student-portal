@@ -59,8 +59,8 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
   }
   const items = [
     { to: '/', label: 'Home', icon: 'home', show: true },
-    { to: '/apply', label: 'Apply', icon: 'apply', show: !auth?.is_student },
-    { to: '/wizard', label: 'Application form', icon: 'wizard', show: !auth?.is_student && !!auth?.portal_access && ['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '') },
+    { to: '/apply', label: 'Apply', icon: 'apply', show: !auth?.is_student || !!auth?.can_apply_again },
+    { to: '/wizard', label: 'Application form', icon: 'wizard', show: (!auth?.is_student || !!auth?.can_apply_again) && !!auth?.portal_access && ['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '') },
     { to: '/status', label: hasPendingAdmissionOffer(auth) ? 'Accept offer' : 'Status', icon: 'status', show: !!auth?.lifecycle_stage && auth.lifecycle_stage !== 'started' && auth.lifecycle_stage !== 'matriculated' },
     { to: '/invoices', label: 'Transaction history', icon: 'invoices', show: true },
     { to: '/finance-status', label: 'Financial status', icon: 'invoices', show: !!auth?.is_student },

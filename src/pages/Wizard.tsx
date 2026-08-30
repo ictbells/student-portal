@@ -703,7 +703,7 @@ export default function Wizard() {
     }
   };
 
-  if (auth?.is_student) {
+  if (auth?.is_student && !auth.can_apply_again) {
     return <Navigate to={auth.nin_verified ? '/' : '/verify-nin'} replace />;
   }
 

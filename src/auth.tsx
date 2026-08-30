@@ -7,6 +7,8 @@ export type AuthState = {
   permissions: string[];
   portal_access: boolean;
   is_student: boolean;
+  student_status?: string | null;
+  can_apply_again?: boolean;
   is_staff?: boolean;
   lifecycle_stage?: string;
   unpaid_application_fee?: boolean;
