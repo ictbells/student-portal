@@ -1284,8 +1284,12 @@ export default function Wizard() {
               </div>
               <div>
                 <Label htmlFor="phone">Phone from NIN</Label>
-                <Input id="phone" type="tel" readOnly className="bg-slate-50 text-slate-700" value={payload.phone || auth?.user?.phone || ''} />
-                <p className="mt-1 text-xs text-slate-500">This number comes from your NIN record and cannot be changed here.</p>
+                <Input id="phone" type="tel" readOnly className="bg-slate-50 text-slate-700" value={payload.phone || auth?.user?.phone || ''} placeholder="Not on this NIN record" />
+                <p className="mt-1 text-xs text-slate-500">
+                  {(payload.phone || auth?.user?.phone)
+                    ? 'This number comes from your NIN record and cannot be changed here.'
+                    : 'This NIN record did not include a phone number. Enter an alternate number below.'}
+                </p>
               </div>
               <div>
                 <Label htmlFor="alternate_phone" required>Alternate phone</Label>

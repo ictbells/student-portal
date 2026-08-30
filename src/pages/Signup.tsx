@@ -145,9 +145,7 @@ export default function Signup() {
         intake_id: selectedIntake.id,
       });
       setIdentity(data);
-      if (data.phone) {
-        setPhone(data.phone);
-      }
+      setPhone(data.phone != null && String(data.phone).trim() ? String(data.phone).trim() : '');
       setStep('register');
       toast.success(data.live === false
         ? 'NIN accepted in demo mode — this was not a live Prembly check.'
@@ -416,8 +414,12 @@ export default function Signup() {
               </div>
               <div>
                 <Label htmlFor="phone">Phone from NIN</Label>
-                <Input id="phone" type="tel" value={phone} readOnly className="bg-slate-50 text-slate-700" />
-                <p className="mt-1 text-xs text-slate-500">This number comes from your NIN record and cannot be changed here.</p>
+                <Input id="phone" type="tel" value={phone || identity?.phone || ''} readOnly className="bg-slate-50 text-slate-700" placeholder="Not on this NIN record" />
+                <p className="mt-1 text-xs text-slate-500">
+                  {(phone || identity?.phone)
+                    ? 'This number comes from your NIN record and cannot be changed here.'
+                    : 'This NIN record did not include a phone number. Enter an alternate number below.'}
+                </p>
               </div>
               <div>
                 <Label htmlFor="alternate_phone" required>Alternate phone</Label>
