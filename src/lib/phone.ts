@@ -30,3 +30,9 @@ export function normalizePhone(raw?: string | null): string | null {
 export function isValidPhone(raw?: string | null): boolean {
   return normalizePhone(raw) !== null;
 }
+
+export function phoneIssue(raw?: string | null, required = false): string | null {
+  const value = String(raw || '').trim();
+  if (!value) return required ? PHONE_ERROR : null;
+  return isValidPhone(value) ? null : PHONE_ERROR;
+}

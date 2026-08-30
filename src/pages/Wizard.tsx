@@ -8,7 +8,7 @@ import { useToast } from '../components/toast';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { Alert, Button, Card, Input, Label, RequiredMark, Spinner } from '../components/ui';
 import { storageUrl } from '../lib/storage';
-import { ALTERNATE_PHONE_ERROR, ALTERNATE_PHONE_HINT, isValidPhone, PHONE_ERROR } from '../lib/phone';
+import { ALTERNATE_PHONE_ERROR, ALTERNATE_PHONE_HINT, isValidPhone, PHONE_ERROR, PHONE_HINT, phoneIssue } from '../lib/phone';
 import { requiredDocumentsFor } from '../constants/requiredDocuments';
 
 const OLEVEL_GRADES = ['A1', 'B2', 'B3', 'C4', 'C5', 'C6', 'D7', 'E8', 'F9'];
@@ -561,6 +561,20 @@ export default function Wizard() {
       toast.error(`The four subject scores total ${total}, which must match the aggregate.`);
       return;
     }
+    if (steps[idx].key === 'next_of_kin') {
+      const issue = phoneIssue(payload.next_of_kin_phone, true);
+      if (issue) {
+        toast.error(issue);
+        return;
+      }
+    }
+    if (steps[idx].key === 'sponsor') {
+      const issue = phoneIssue(payload.sponsor_phone, true);
+      if (issue) {
+        toast.error(issue);
+        return;
+      }
+    }
     if (steps[idx].key === 'application_form') {
       const alternate = String(payload.alternate_phone || '').trim();
       if (!alternate) {
@@ -568,6 +582,13 @@ export default function Wizard() {
         return;
       }
       if (!isValidPhone(alternate)) {
+        toast.error(PHONE_ERROR);
+        return;
+      }
+    }
+    if (steps[idx].key === 'pg_referees') {
+      const invalid = (payload.referees || []).find((row: { phone?: string }) => phoneIssue(row?.phone));
+      if (invalid) {
         toast.error(PHONE_ERROR);
         return;
       }
@@ -1260,7 +1281,8 @@ export default function Wizard() {
               </div>
               <div>
                 <Label htmlFor="next_of_kin_phone" required>Phone number</Label>
-                <Input id="next_of_kin_phone" type="tel" value={payload.next_of_kin_phone || ''} onChange={(e) => setField('next_of_kin_phone', e.target.value)} />
+                <Input id="next_of_kin_phone" type="tel" placeholder="0803 123 4567 or +1 202 555 0100" value={payload.next_of_kin_phone || ''} onChange={(e) => setField('next_of_kin_phone', e.target.value)} />
+                <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
               </div>
               <div>
                 <Label htmlFor="next_of_kin_email">Email</Label>
@@ -1290,7 +1312,8 @@ export default function Wizard() {
               </div>
               <div>
                 <Label htmlFor="sponsor_phone" required>Phone number</Label>
-                <Input id="sponsor_phone" type="tel" value={payload.sponsor_phone || ''} onChange={(e) => setField('sponsor_phone', e.target.value)} />
+                <Input id="sponsor_phone" type="tel" placeholder="0803 123 4567 or +1 202 555 0100" value={payload.sponsor_phone || ''} onChange={(e) => setField('sponsor_phone', e.target.value)} />
+                <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
               </div>
               <div>
                 <Label htmlFor="sponsor_email">Email</Label>
@@ -1792,6 +1815,15 @@ export default function Wizard() {
                       referees[index] = { ...row, position: e.target.value };
                       setPayload({ ...payload, referees });
                     }} />
+                  </div>
+                  <div>
+                    <Label>Phone number</Label>
+                    <Input type="tel" placeholder="0803 123 4567 or +1 202 555 0100" value={row.phone || ''} onChange={(e) => {
+                      const referees = [...payload.referees];
+                      referees[index] = { ...row, phone: e.target.value };
+                      setPayload({ ...payload, referees });
+                    }} />
+                    <p className="mt-1 text-xs text-slate-500">{PHONE_HINT}</p>
                   </div>
                 </div>
               ))}
