@@ -33,15 +33,6 @@ type OpenIntake = {
   term?: { session_label?: string };
 };
 
-const IDENTITY_FIELDS = [
-  { key: 'nin', label: 'NIN' },
-  { key: 'first_name', label: 'First name' },
-  { key: 'middle_name', label: 'Middle name' },
-  { key: 'last_name', label: 'Surname' },
-  { key: 'date_of_birth', label: 'Date of birth' },
-  { key: 'gender', label: 'Gender' },
-] as const;
-
 const MODE_LABELS: Record<string, { label: string; desc: string }> = {
   utme: { label: 'UTME', desc: 'Unified Tertiary Matriculation Examination' },
   de: { label: 'Direct Entry', desc: 'Diploma or A-Level direct entry' },
@@ -409,23 +400,14 @@ export default function Signup() {
             <form onSubmit={submit} className="space-y-4">
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">Verified identity</p>
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {IDENTITY_FIELDS.map((field) => (
-                    <div key={field.key}>
-                      <Label htmlFor={field.key} required={field.key !== 'middle_name'}>{field.label}</Label>
-                      <Input
-                        id={field.key}
-                        readOnly
-                        className="bg-white/80"
-                        value={
-                          field.key === 'date_of_birth'
-                            ? formatDate(identity?.[field.key])
-                            : identity?.[field.key] || ''
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
+                <p className="mt-2 font-medium text-slate-900">
+                  {[identity?.first_name, identity?.middle_name, identity?.last_name].filter(Boolean).join(' ')}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  NIN {identity?.nin}
+                  {identity?.gender ? ` · ${identity.gender}` : ''}
+                  {identity?.date_of_birth ? ` · ${formatDate(identity.date_of_birth)}` : ''}
+                </p>
               </div>
               <div>
                 <Label htmlFor="email" required>Email</Label>

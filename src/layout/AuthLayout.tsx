@@ -86,7 +86,7 @@ export default function AuthLayout({ title, subtitle, kicker = 'Student admissio
         <AdmissionsContact contact={contact} />
       </aside>
 
-      <main className="relative flex items-center justify-center bg-parchment px-4 py-8 sm:px-8 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <main className="relative flex min-h-screen items-start justify-center overflow-y-auto bg-parchment px-4 py-8 sm:px-8 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
         <div
           className="pointer-events-none absolute inset-0 opacity-70"
           style={{
