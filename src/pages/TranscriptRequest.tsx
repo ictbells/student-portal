@@ -40,7 +40,7 @@ type ProgrammeOption = {
 };
 
 type LookupResult = {
-  student: { name?: string; matric_number?: string };
+  student: { name?: string; matric_number?: string; email?: string };
   programmes: ProgrammeOption[];
 };
 
@@ -95,8 +95,7 @@ export default function TranscriptRequestPage() {
 
   const [meta, setMeta] = useState<Meta | null>(null);
   const [metaLoading, setMetaLoading] = useState(true);
-  const [matric, setMatric] = useState('');
-  const [email, setEmail] = useState('');
+  const [nin, setNin] = useState('');
   const [lookup, setLookup] = useState<LookupResult | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [programId, setProgramId] = useState<number | ''>('');
@@ -187,15 +186,16 @@ export default function TranscriptRequestPage() {
     resetLookupFields();
     try {
       const { data } = await api.post<LookupResult>('/api/transcript-requests/lookup', {
-        matric_number: matric.trim(),
-        email: email.trim(),
+        nin: nin.trim(),
         channel: channelKey,
       });
       setLookup(data);
-      setDeliveryEmail(email.trim());
+      if (data.student.email) {
+        setDeliveryEmail(data.student.email);
+      }
       toast.success('Identity verified. Select the programme and transcript type.');
     } catch (err: unknown) {
-      toast.error(networkErrorMessage(err, 'Unable to verify matric and email'));
+      toast.error(networkErrorMessage(err, 'Unable to verify NIN'));
     } finally {
       setLookingUp(false);
     }
@@ -214,12 +214,12 @@ export default function TranscriptRequestPage() {
     setSubmitting(true);
     try {
       const { data } = await api.post('/api/transcript-requests', {
-        matric_number: matric.trim(),
-        email: email.trim(),
+        nin: nin.trim(),
         program_id: programId,
         transcript_type: transcriptType,
         copies,
         purpose: purpose.trim() || undefined,
+        contact_email: lookup?.student.email || undefined,
         delivery_email: transcriptType === 'e_copy' ? deliveryEmail.trim() : undefined,
         delivery_address: transcriptType === 'within_nigeria' || transcriptType === 'outside_nigeria'
           || (transcriptType === 'student_copy' && collectionMethod === 'post')
@@ -331,7 +331,7 @@ export default function TranscriptRequestPage() {
 
       {channelKey && (
         <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
-          <p>Verify your identity, choose the programme, then pay online.</p>
+          <p>Verify your NIN, choose the programme, then pay online.</p>
           <p className="mt-1 text-xs text-slate-500">
             Not this programme type?{' '}
             <Link to="/transcript-request" className="text-sky-700 hover:underline">Choose Undergraduate, JUPEB, or Postgraduate</Link>
@@ -414,28 +414,20 @@ export default function TranscriptRequestPage() {
       {meta?.enabled && channelKey && !lookup && (
         <form onSubmit={verifyIdentity} className="space-y-5">
           <div>
-            <Label htmlFor="matric">Matric number</Label>
+            <Label htmlFor="nin" required>National Identification Number (NIN)</Label>
             <Input
-              id="matric"
-              value={matric}
-              onChange={(e) => setMatric(e.target.value)}
+              id="nin"
+              inputMode="numeric"
+              maxLength={11}
+              value={nin}
+              onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
               required
-              placeholder="BUT/2020/0001"
-              autoCapitalize="characters"
+              placeholder="11-digit NIN"
+              autoComplete="off"
             />
+            <p className="mt-1.5 text-xs text-slate-500">{nin.length}/11 digits. Use the NIN on your student record.</p>
           </div>
-          <div>
-            <Label htmlFor="email">Email on your student portal account</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="you@example.com"
-            />
-          </div>
-          <Button type="submit" disabled={lookingUp} className={`${authPrimaryClass} w-full`}>
+          <Button type="submit" disabled={lookingUp || nin.length !== 11} className={`${authPrimaryClass} w-full`}>
             {lookingUp ? 'Checking…' : 'Continue — show my programmes'}
           </Button>
         </form>
@@ -446,12 +438,15 @@ export default function TranscriptRequestPage() {
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
             <p className="font-medium text-slate-900">{lookup.student.name}</p>
             <p className="text-slate-600">{lookup.student.matric_number}</p>
+            {lookup.student.email && (
+              <p className="text-slate-500">{lookup.student.email}</p>
+            )}
             <button
               type="button"
               className="mt-2 text-xs font-medium text-sky-700 hover:underline"
               onClick={() => resetLookupFields()}
             >
-              Use a different matric / email
+              Use a different NIN
             </button>
           </div>
 
