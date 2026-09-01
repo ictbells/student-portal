@@ -5,11 +5,12 @@ import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import { Button, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
+import { paymentVerifyPath } from '../lib/onlinePayment';
 
 type PaymentKind = 'wallet' | 'application_fee' | 'acceptance_fee' | 'invoice';
 
 function kindFromReference(reference: string | null): PaymentKind {
-  if (reference?.startsWith('PSK-W-')) return 'wallet';
+  if (reference?.startsWith('PSK-W-') || reference?.startsWith('WEMA-W-')) return 'wallet';
   return 'invoice';
 }
 
@@ -95,6 +96,7 @@ function AlertIcon() {
 export default function PaymentCallback() {
   const [searchParams] = useSearchParams();
   const reference = searchParams.get('reference') || searchParams.get('trxref');
+  const transactionId = searchParams.get('transactionId') || searchParams.get('transaction_id');
   const guessedKind = kindFromReference(reference);
   const [kind, setKind] = useState<PaymentKind>(guessedKind);
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>(reference ? 'verifying' : 'failed');
@@ -110,7 +112,7 @@ export default function PaymentCallback() {
     if (!reference) return;
 
     let cancelled = false;
-    api.get(`/api/payments/paystack/verify/${encodeURIComponent(reference)}`)
+    api.get(paymentVerifyPath(reference, transactionId))
       .then(async (res) => {
         try {
           await refresh();
@@ -133,7 +135,7 @@ export default function PaymentCallback() {
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per reference
-  }, [reference]);
+  }, [reference, transactionId]);
 
   const amount = payment?.amount ?? payment?.invoice?.amount;
   const receipt = payment?.receipt_no;

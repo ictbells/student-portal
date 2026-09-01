@@ -5,6 +5,7 @@ import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Alert, Button, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
+import { startOnlineCheckout } from '../lib/onlinePayment';
 
 const CHANNELS = [
   { key: 'undergraduate', label: 'Undergraduate', description: 'Degree programmes (UTME, Direct Entry, Transfer).' },
@@ -229,18 +230,15 @@ export default function TranscriptRequestPage() {
       });
       setRequest(data.request);
       const payment = data.payment;
-      if (payment?.demo && payment?.reference) {
-        await api.get(
-          `/api/transcript-requests/${encodeURIComponent(data.request.token)}/verify/${encodeURIComponent(payment.reference)}`,
-        );
+      const outcome = await startOnlineCheckout(payment, {
+        verifyDemo: (reference) => api.get(
+          `/api/transcript-requests/${encodeURIComponent(data.request.token)}/verify/${encodeURIComponent(reference)}`,
+        ),
+      });
+      if (outcome === 'demo') {
         const refreshed = await api.get(`/api/transcript-requests/${encodeURIComponent(data.request.token)}`);
         setRequest(refreshed.data);
         toast.success('Payment recorded (demo). Registry will process your request.');
-      } else if (payment?.authorization_url) {
-        window.location.href = payment.authorization_url;
-        return;
-      } else {
-        toast.success('Request created. Complete payment to continue.');
       }
     } catch (err: unknown) {
       toast.error(networkErrorMessage(err, 'Unable to submit transcript request'));
@@ -390,15 +388,15 @@ export default function TranscriptRequestPage() {
                   onClick={async () => {
                     try {
                       const { data } = await api.post(`/api/transcript-requests/${encodeURIComponent(request.token!)}/pay`);
-                      if (data.payment?.demo && data.payment?.reference) {
-                        await api.get(
-                          `/api/transcript-requests/${encodeURIComponent(request.token!)}/verify/${encodeURIComponent(data.payment.reference)}`,
-                        );
+                      const outcome = await startOnlineCheckout(data.payment, {
+                        verifyDemo: (reference) => api.get(
+                          `/api/transcript-requests/${encodeURIComponent(request.token!)}/verify/${encodeURIComponent(reference)}`,
+                        ),
+                      });
+                      if (outcome === 'demo') {
                         const refreshed = await api.get(`/api/transcript-requests/${encodeURIComponent(request.token!)}`);
                         setRequest(refreshed.data);
                         toast.success('Payment recorded (demo).');
-                      } else if (data.payment?.authorization_url) {
-                        window.location.href = data.payment.authorization_url;
                       }
                     } catch (err: unknown) {
                       toast.error(networkErrorMessage(err, 'Unable to start payment'));

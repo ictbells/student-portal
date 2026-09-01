@@ -8,6 +8,7 @@ import { useToast } from '../components/toast';
 import { formatStage, liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
+import { startOnlineCheckout } from '../lib/onlinePayment';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
 
@@ -130,22 +131,20 @@ export default function Status() {
   const payAcceptance = async (invoiceId: number) => {
     setPayingAcceptance(true);
     try {
-      const { data } = await api.post('/api/payments/paystack/initialize', {
+      const { data } = await api.post('/api/payments/initialize', {
         invoice_id: invoiceId,
         portal: 'student',
       });
-      if (data.demo) {
-        await api.get(`/api/payments/paystack/verify/${encodeURIComponent(data.reference)}`);
+      const outcome = await startOnlineCheckout(data, {
+        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+      });
+      if (outcome === 'demo') {
         toast.success('Acceptance fee paid. Your student record will open shortly.');
         await refresh();
         if (auth?.application_id) {
           const { data: fresh } = await api.get(`/api/applications/${auth.application_id}`);
           setApp(fresh);
         }
-      } else if (data.authorization_url) {
-        window.location.href = data.authorization_url;
-      } else {
-        toast.error('Payment could not be started.');
       }
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Payment could not be started.');

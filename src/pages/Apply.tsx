@@ -6,6 +6,7 @@ import { IdentityCard, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
+import { startOnlineCheckout } from '../lib/onlinePayment';
 import { storageUrl } from '../lib/storage';
 
 const JAMB_ENTRY_MODES = ['utme', 'de'];
@@ -182,23 +183,19 @@ export default function Apply() {
         toast.error('Application fee invoice is missing. Please refresh and try again.');
         return;
       }
-      const { data } = await api.post('/api/payments/paystack/initialize', {
+      const { data } = await api.post('/api/payments/initialize', {
         invoice_id: invoiceId,
         portal: 'student',
       });
-      if (data.demo) {
-        await api.get(`/api/payments/paystack/verify/${encodeURIComponent(data.reference)}`);
+      const outcome = await startOnlineCheckout(data, {
+        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+      });
+      if (outcome === 'demo') {
         const { data: refreshedApp } = await api.get(`/api/applications/${app.id}`);
         setApp(refreshedApp);
         await refresh();
         toast.success('Application fee paid');
-        return;
       }
-      if (data.authorization_url) {
-        window.location.href = data.authorization_url;
-        return;
-      }
-      toast.error('Payment could not be started. Please try again or pay at the admissions office.');
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Payment could not be started');
     } finally {

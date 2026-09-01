@@ -9,6 +9,7 @@ export default function TranscriptRequestCallback() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
   const reference = searchParams.get('reference') || searchParams.get('trxref') || '';
+  const transactionId = searchParams.get('transactionId') || searchParams.get('transaction_id') || '';
   const toast = useToast();
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>(token && reference ? 'verifying' : 'failed');
   const [message, setMessage] = useState(
@@ -20,7 +21,9 @@ export default function TranscriptRequestCallback() {
     if (!token || !reference) return;
     let cancelled = false;
     api
-      .get(`/api/transcript-requests/${encodeURIComponent(token)}/verify/${encodeURIComponent(reference)}`)
+      .get(`/api/transcript-requests/${encodeURIComponent(token)}/verify/${encodeURIComponent(reference)}${
+        transactionId ? `?transactionId=${encodeURIComponent(transactionId)}` : ''
+      }`)
       .then(({ data }) => {
         if (cancelled) return;
         setStatus('success');
@@ -34,7 +37,7 @@ export default function TranscriptRequestCallback() {
         setMessage(err.response?.data?.message || 'We could not confirm this payment.');
       });
     return () => { cancelled = true; };
-  }, [token, reference, toast]);
+  }, [token, reference, transactionId, toast]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">

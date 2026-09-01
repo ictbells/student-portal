@@ -8,6 +8,7 @@ import {
   isOfferPromptDismissed,
 } from '../lib/offer';
 import { formatNaira } from '../lib/money';
+import { startOnlineCheckout } from '../lib/onlinePayment';
 import { useToast } from './toast';
 import { Button, Spinner } from './ui';
 
@@ -77,19 +78,17 @@ export default function OfferAcceptanceModal() {
     }
     setPaying(true);
     try {
-      const { data } = await api.post('/api/payments/paystack/initialize', {
+      const { data } = await api.post('/api/payments/initialize', {
         invoice_id: invoiceId,
         portal: 'student',
       });
-      if (data.demo) {
-        await api.get(`/api/payments/paystack/verify/${encodeURIComponent(data.reference)}`);
+      const outcome = await startOnlineCheckout(data, {
+        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+      });
+      if (outcome === 'demo') {
         toast.success('Acceptance fee paid. Your student record will open shortly.');
         setOpen(false);
         await refresh();
-      } else if (data.authorization_url) {
-        window.location.href = data.authorization_url;
-      } else {
-        toast.error('Payment could not be started.');
       }
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Payment could not be started.');

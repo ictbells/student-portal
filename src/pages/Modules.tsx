@@ -8,6 +8,7 @@ import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
+import { startOnlineCheckout } from '../lib/onlinePayment';
 
 const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
 const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee', 'transcript'];
@@ -133,14 +134,12 @@ export function WalletPage() {
     setFunding(true);
     try {
       const { data } = await api.post('/api/wallet/topup', { amount: value, portal: 'student' });
-      if (data.demo) {
-        await api.get(`/api/payments/paystack/verify/${data.reference}`);
+      const outcome = await startOnlineCheckout(data, {
+        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+      });
+      if (outcome === 'demo') {
         toast.success('Wallet funded');
         await load();
-      } else if (data.authorization_url) {
-        window.location.href = data.authorization_url;
-      } else {
-        toast.error('Could not start wallet funding.');
       }
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Could not fund wallet.');
@@ -419,18 +418,16 @@ export function Invoices() {
   const payOnline = async (id: number) => {
     setPayingId(id);
     try {
-      const { data } = await api.post('/api/payments/paystack/initialize', {
+      const { data } = await api.post('/api/payments/initialize', {
         invoice_id: id,
         portal: 'student',
       });
-      if (data.demo) {
-        await api.get(`/api/payments/paystack/verify/${encodeURIComponent(data.reference)}`);
+      const outcome = await startOnlineCheckout(data, {
+        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+      });
+      if (outcome === 'demo') {
         toast.success('Payment confirmed');
         load();
-      } else if (data.authorization_url) {
-        window.location.href = data.authorization_url;
-      } else {
-        toast.error('Payment could not be started.');
       }
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Payment could not be started.');
@@ -1056,22 +1053,20 @@ export function Documents() {
   const payAcceptance = async (invoiceId: number) => {
     setPayingAcceptance(true);
     try {
-      const { data } = await api.post('/api/payments/paystack/initialize', {
+      const { data } = await api.post('/api/payments/initialize', {
         invoice_id: invoiceId,
         portal: 'student',
       });
-      if (data.demo) {
-        await api.get(`/api/payments/paystack/verify/${encodeURIComponent(data.reference)}`);
+      const outcome = await startOnlineCheckout(data, {
+        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+      });
+      if (outcome === 'demo') {
         toast.success('Acceptance fee paid. Your student record will open shortly.');
         await refresh();
         if (auth?.application_id) {
           const res = await api.get(`/api/applications/${auth.application_id}`);
           setApp(res.data);
         }
-      } else if (data.authorization_url) {
-        window.location.href = data.authorization_url;
-      } else {
-        toast.error('Payment could not be started.');
       }
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Payment could not be started.');
