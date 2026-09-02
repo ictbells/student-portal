@@ -59,7 +59,6 @@ type OpenIntake = {
   closes_on?: string;
   application_fee_amount?: number | string;
   requires_jamb?: boolean;
-  candidate_list_required?: boolean;
   term?: { session_label?: string };
 };
 
@@ -129,7 +128,7 @@ export default function Signup() {
     || ['utme', 'de'].includes(selectedIntake?.entry_mode || '');
   const applicationsOpen = intakes === null ? null : intakes.length > 0;
 
-  const continueFromIntake = async (e: FormEvent) => {
+  const continueFromIntake = (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
     if (!selectedIntake) {
@@ -145,20 +144,6 @@ export default function Signup() {
       setFormError(message);
       toast.error(message);
       return;
-    }
-    if (requiresJamb && selectedIntake.candidate_list_required) {
-      try {
-        await api.get(`/api/candidate-data/${encodeURIComponent(jambRegistration.trim())}`, {
-          params: selectedIntake.term?.session_label
-            ? { academic_year: selectedIntake.term.session_label }
-            : undefined,
-        });
-      } catch (err) {
-        const message = apiErrorMessage(err, 'This registration number is not on the candidate list for this application session.');
-        setFormError(message);
-        toast.error(message);
-        return;
-      }
     }
     setStep('nin');
   };
@@ -377,11 +362,6 @@ export default function Signup() {
                     spellCheck={false}
                     placeholder="e.g. 20261234AB"
                   />
-                  {selectedIntake?.candidate_list_required && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      This number must appear on the university candidate list for this session.
-                    </p>
-                  )}
                 </div>
               )}
               <Button type="submit" disabled={!selectedIntake} className={authPrimaryClass}>
