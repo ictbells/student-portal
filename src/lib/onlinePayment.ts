@@ -1,4 +1,4 @@
-export type PaymentGatewayProvider = 'paystack' | 'wema';
+export type PaymentGatewayProvider = 'paystack' | 'wema' | 'paygate';
 
 export type PaymentInitializeResponse = {
   reference?: string;

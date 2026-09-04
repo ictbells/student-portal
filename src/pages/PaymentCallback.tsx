@@ -10,7 +10,7 @@ import { paymentVerifyPath } from '../lib/onlinePayment';
 type PaymentKind = 'wallet' | 'application_fee' | 'acceptance_fee' | 'invoice';
 
 function kindFromReference(reference: string | null): PaymentKind {
-  if (reference?.startsWith('PSK-W-') || reference?.startsWith('WEMA-W-')) return 'wallet';
+  if (reference?.startsWith('PSK-W-') || reference?.startsWith('WEMA-W-') || reference?.startsWith('UPG-W-')) return 'wallet';
   return 'invoice';
 }
 
