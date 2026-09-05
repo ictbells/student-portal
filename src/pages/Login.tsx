@@ -12,12 +12,13 @@ export default function Login() {
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [applicationsOpen, setApplicationsOpen] = useState<boolean | null>(null);
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
-  const [searchParams] = useSearchParams();
-  const resetNotice = searchParams.get('reset') === '1';
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     api
@@ -26,8 +27,17 @@ export default function Login() {
       .catch(() => setApplicationsOpen(true));
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get('reset') !== '1') return;
+    setNotice('Password updated. Sign in with your new password.');
+    const next = new URLSearchParams(searchParams);
+    next.delete('reset');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
     try {
       const { data } = await api.post('/api/login', { login: login.trim(), password, portal: 'student' });
@@ -38,7 +48,9 @@ export default function Login() {
       if (!data.portal_access && data.unpaid_application_fee) nav('/apply');
       else nav('/');
     } catch (err: unknown) {
-      toast.error(networkErrorMessage(err));
+      const message = networkErrorMessage(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -58,9 +70,8 @@ export default function Login() {
       }
     >
       <form onSubmit={submit} className={`space-y-5${applicationsOpen === false ? ' mt-5' : ''}`}>
-        {resetNotice && (
-          <Alert tone="success">Password updated. Sign in with your new password.</Alert>
-        )}
+        {notice && <Alert tone="success">{notice}</Alert>}
+        {error && <Alert tone="error">{error}</Alert>}
         <div>
           <Label htmlFor="login">Jamb/Matric/Application Number</Label>
           <Input

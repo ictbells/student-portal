@@ -29,7 +29,7 @@ export default function Reset() {
       const message = data?.message || 'Password has been reset. You may sign in.';
       setDone(message);
       toast.success(message);
-      window.setTimeout(() => nav('/login?reset=1'), 1200);
+      window.setTimeout(() => nav({ pathname: '/login', search: '?reset=1' }), 1200);
     } catch (err: unknown) {
       const message = apiErrorMessage(err, 'Could not reset password.');
       setError(message);
