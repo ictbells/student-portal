@@ -1,22 +1,30 @@
 import { FormEvent, useState } from 'react';
-import api from '../api';
+import api, { apiErrorMessage } from '../api';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
-import { Button, Input, Label, Spinner } from '../components/ui';
+import { Alert, Button, Input, Label, Spinner } from '../components/ui';
 
 export default function Forgot() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState('');
+  const [error, setError] = useState('');
   const toast = useToast();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
+    setDone('');
     setLoading(true);
     try {
       const { data } = await api.post('/api/forgot-password', { email: email.trim(), portal: 'student' });
-      toast.success(data.message || 'If that email exists, a reset link was sent.');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || 'Could not send reset link.');
+      const message = data?.message || 'If that email exists, a reset link was sent.';
+      setDone(message);
+      toast.success(message);
+    } catch (err: unknown) {
+      const message = apiErrorMessage(err, 'Could not send reset link.');
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -34,6 +42,8 @@ export default function Forgot() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
+        {done && <Alert tone="success">{done}</Alert>}
+        {error && <Alert tone="error">{error}</Alert>}
         <div>
           <Label htmlFor="email">Email</Label>
           <Input
@@ -45,10 +55,13 @@ export default function Forgot() {
             autoComplete="email"
             inputMode="email"
             placeholder="you@example.com"
+            disabled={loading || Boolean(done)}
           />
         </div>
-        <Button type="submit" disabled={loading} className={authPrimaryClass}>
-          {loading ? <Spinner label="Sending…" className="text-white" /> : <span className="text-white">Send reset link</span>}
+        <Button type="submit" disabled={loading || Boolean(done) || !email.trim()} className={authPrimaryClass}>
+          {loading
+            ? <Spinner label="Sending…" className="text-white" />
+            : <span className="text-white">{done ? 'Link sent' : 'Send reset link'}</span>}
         </Button>
       </form>
     </AuthLayout>

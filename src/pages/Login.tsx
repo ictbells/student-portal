@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api, { networkErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
@@ -16,6 +16,8 @@ export default function Login() {
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resetNotice = searchParams.get('reset') === '1';
 
   useEffect(() => {
     api
@@ -55,8 +57,10 @@ export default function Login() {
         </div>
       }
     >
-      
       <form onSubmit={submit} className={`space-y-5${applicationsOpen === false ? ' mt-5' : ''}`}>
+        {resetNotice && (
+          <Alert tone="success">Password updated. Sign in with your new password.</Alert>
+        )}
         <div>
           <Label htmlFor="login">Jamb/Matric/Application Number</Label>
           <Input
@@ -71,7 +75,6 @@ export default function Login() {
             spellCheck={false}
             inputMode="text"
           />
-          
         </div>
         <div>
           <div className="mb-1.5 flex items-center justify-between gap-3">

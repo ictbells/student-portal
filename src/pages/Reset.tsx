@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import api from '../api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import api, { apiErrorMessage } from '../api';
 import { PasswordHints, passwordValid } from '../components/passwordHints';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
@@ -13,17 +13,27 @@ export default function Reset() {
   const [password, setPassword] = useState('');
   const [password_confirmation, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState('');
+  const [error, setError] = useState('');
   const toast = useToast();
+  const nav = useNavigate();
   const ok = useMemo(() => passwordValid(password, email) && password === password_confirmation, [password, password_confirmation, email]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
+    setDone('');
     setLoading(true);
     try {
       const { data } = await api.post('/api/reset-password', { email, token, password, password_confirmation });
-      toast.success(data.message || 'Password has been reset. You may sign in.');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || 'Could not reset password.');
+      const message = data?.message || 'Password has been reset. You may sign in.';
+      setDone(message);
+      toast.success(message);
+      window.setTimeout(() => nav('/login?reset=1'), 1200);
+    } catch (err: unknown) {
+      const message = apiErrorMessage(err, 'Could not reset password.');
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -50,17 +60,33 @@ export default function Reset() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
+        {done && <Alert tone="success">{done} Redirecting to sign in…</Alert>}
+        {error && <Alert tone="error">{error}</Alert>}
         <div>
           <Label htmlFor="password">New password</Label>
-          <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput
+            id="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading || Boolean(done)}
+          />
         </div>
         <div>
           <Label htmlFor="confirm">Confirm password</Label>
-          <PasswordInput id="confirm" value={password_confirmation} onChange={(e) => setConfirm(e.target.value)} required />
+          <PasswordInput
+            id="confirm"
+            value={password_confirmation}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            disabled={loading || Boolean(done)}
+          />
         </div>
         <PasswordHints password={password} email={email} />
-        <Button type="submit" disabled={!ok || loading} className={`${authPrimaryClass} disabled:opacity-50`}>
-          {loading ? <Spinner label="Saving…" className="text-white" /> : <span className="text-white">Reset password</span>}
+        <Button type="submit" disabled={!ok || loading || Boolean(done)} className={`${authPrimaryClass} disabled:opacity-50`}>
+          {loading
+            ? <Spinner label="Saving…" className="text-white" />
+            : <span className="text-white">{done ? 'Password saved' : 'Reset password'}</span>}
         </Button>
       </form>
     </AuthLayout>
