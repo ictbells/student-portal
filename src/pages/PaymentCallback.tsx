@@ -225,6 +225,35 @@ export default function PaymentCallback() {
                 </div>
               ) : (
                 <>
+                  {status === 'failed' && reference && (
+                    <Button
+                      onClick={() => {
+                        setError(null);
+                        setStatus('verifying');
+                        api.get(paymentVerifyPath(reference, transactionId))
+                          .then(async (res) => {
+                            try {
+                              await refresh();
+                            } catch {
+                              /* still show the receipt */
+                            }
+                            const me = await api.get('/api/me').then((r) => r.data).catch(() => null);
+                            const nextKind = kindFromPayment(res.data, guessedKind);
+                            setKind(nextKind);
+                            setPayment(res.data);
+                            setStatus('success');
+                            toast.success(copyFor(nextKind, !!me?.is_student).successTitle);
+                          })
+                          .catch((err: any) => {
+                            setError(err.response?.data?.message || copyFor(guessedKind).failed);
+                            setStatus('failed');
+                          });
+                      }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                    >
+                      Confirm payment again
+                    </Button>
+                  )}
                   <Button onClick={() => nav(copy.path)} className="w-full bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
                     {copy.cta}
                   </Button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader, StepIndicator } from '../components/portal';
@@ -8,7 +8,7 @@ import { useToast } from '../components/toast';
 import { formatStage, liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
-import { startOnlineCheckout } from '../lib/onlinePayment';
+import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
 
@@ -54,6 +54,7 @@ function refereesFromApp(app: any): RefereeDraft[] {
 export default function Status() {
   const { auth, refresh } = useAuth();
   const toast = useToast();
+  const nav = useNavigate();
   const [app, setApp] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [printDoc, setPrintDoc] = useState<PrintDoc | null>(null);
@@ -303,13 +304,31 @@ export default function Status() {
               </Button>
             )}
             {app?.acceptance_fee_invoice?.id && ['unpaid', 'partial'].includes(app.acceptance_fee_invoice.status) && (
-              <Button
-                onClick={() => payAcceptance(app.acceptance_fee_invoice.id)}
-                disabled={payingAcceptance}
-                className="bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 shadow-sm"
-              >
-                {payingAcceptance ? <Spinner label="Starting payment…" /> : 'Pay acceptance fee'}
-              </Button>
+              <>
+                {app.acceptance_fee_invoice.pending_online_payment?.reference && (
+                  <Button
+                    onClick={() => {
+                      if (!confirmPendingOnlinePayment(nav, app.acceptance_fee_invoice.pending_online_payment)) {
+                        toast.error('No pending online payment was found for this invoice.');
+                      }
+                    }}
+                    className="bg-white border border-sky-200 text-sky-800 hover:bg-sky-50 shadow-sm"
+                  >
+                    Confirm payment
+                  </Button>
+                )}
+                <Button
+                  onClick={() => payAcceptance(app.acceptance_fee_invoice.id)}
+                  disabled={payingAcceptance}
+                  className="bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 shadow-sm"
+                >
+                  {payingAcceptance
+                    ? <Spinner label="Starting payment…" />
+                    : app.acceptance_fee_invoice.pending_online_payment?.reference
+                      ? 'Pay again'
+                      : 'Pay acceptance fee'}
+                </Button>
+              </>
             )}
           </div>
         </Card>

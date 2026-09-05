@@ -144,3 +144,28 @@ export function paymentVerifyPath(reference: string, transactionId?: string | nu
   if (!transactionId) return base;
   return `${base}?transactionId=${encodeURIComponent(transactionId)}`;
 }
+
+export function paymentCallbackPath(reference: string, transactionId?: string | null): string {
+  const params = new URLSearchParams({ reference });
+  if (transactionId) params.set('transactionId', transactionId);
+  return `/payments/callback?${params.toString()}`;
+}
+
+export type PendingOnlinePayment = {
+  id?: number;
+  reference: string;
+  transaction_id?: string | null;
+  method?: string;
+  amount?: number;
+};
+
+/** Open the confirm page so the portal re-checks AlatPay/Paystack/PayGate. */
+export function confirmPendingOnlinePayment(
+  navigate: (path: string) => void,
+  pending?: PendingOnlinePayment | null,
+): boolean {
+  const reference = pending?.reference?.trim();
+  if (!reference) return false;
+  navigate(paymentCallbackPath(reference, pending?.transaction_id || null));
+  return true;
+}

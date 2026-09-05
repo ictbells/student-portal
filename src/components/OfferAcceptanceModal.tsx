@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import {
@@ -8,13 +9,14 @@ import {
   isOfferPromptDismissed,
 } from '../lib/offer';
 import { formatNaira } from '../lib/money';
-import { startOnlineCheckout } from '../lib/onlinePayment';
+import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 import { useToast } from './toast';
 import { Button, Spinner } from './ui';
 
 export default function OfferAcceptanceModal() {
   const { auth, refresh } = useAuth();
   const toast = useToast();
+  const nav = useNavigate();
   const pending = hasPendingAdmissionOffer(auth);
   const [open, setOpen] = useState(false);
   const [app, setApp] = useState<any>(null);
@@ -104,6 +106,7 @@ export default function OfferAcceptanceModal() {
   const session = app?.academic_session?.label || app?.intake?.term?.session_label;
   const invoice = app?.acceptance_fee_invoice;
   const canPay = !!invoice?.id && ['unpaid', 'partial'].includes(invoice.status);
+  const pendingPayment = invoice?.pending_online_payment;
 
   return (
     <>
@@ -172,13 +175,31 @@ export default function OfferAcceptanceModal() {
               >
                 {printLoading ? <Spinner label="Opening…" /> : 'View admission letter'}
               </Button>
+              {pendingPayment?.reference && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    if (!confirmPendingOnlinePayment(nav, pendingPayment)) {
+                      toast.error('No pending online payment was found for this invoice.');
+                    }
+                  }}
+                  className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
+                >
+                  Confirm payment
+                </Button>
+              )}
               <Button
                 type="button"
                 onClick={pay}
                 disabled={paying || !canPay}
                 className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
               >
-                {paying ? <Spinner label="Starting payment…" className="text-white" /> : 'Accept offer — pay fee'}
+                {paying
+                  ? <Spinner label="Starting payment…" className="text-white" />
+                  : pendingPayment?.reference
+                    ? 'Pay again'
+                    : 'Accept offer — pay fee'}
               </Button>
             </div>
             {!canPay && (

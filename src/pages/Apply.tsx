@@ -6,7 +6,7 @@ import { IdentityCard, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
-import { startOnlineCheckout } from '../lib/onlinePayment';
+import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 import { storageUrl } from '../lib/storage';
 
 const JAMB_ENTRY_MODES = ['utme', 'de'];
@@ -105,7 +105,10 @@ export default function Apply() {
     api.get('/api/applications').then((r) => {
       const rows = Array.isArray(r.data?.data) ? r.data.data : (Array.isArray(r.data) ? r.data : []);
       const inProgress = rows.find((row: { stage?: string }) => IN_PROGRESS_STAGES.includes(row.stage || ''));
-      if (inProgress) setApp(inProgress);
+      if (!inProgress?.id) return;
+      api.get(`/api/applications/${inProgress.id}`)
+        .then((detail) => setApp(detail.data))
+        .catch(() => setApp(inProgress));
     }).catch(() => {});
   }, []);
 
@@ -205,6 +208,13 @@ export default function Apply() {
 
   const feePaid = app?.application_fee_invoice?.status === 'paid';
   const progressStep: 1 | 2 | 3 = !app ? 1 : feePaid ? 3 : 2;
+  const pendingPayment = app?.application_fee_invoice?.pending_online_payment;
+
+  const confirmPayment = () => {
+    if (!confirmPendingOnlinePayment(nav, pendingPayment)) {
+      toast.error('No pending online payment was found for this invoice.');
+    }
+  };
 
   const passportUrl = auth?.nin_identity?.photo_url
     || storageUrl(biodataPhotoPath(app))
@@ -365,15 +375,28 @@ export default function Apply() {
             )}
           </dl>
 
-          <div className="hidden sm:block">
+          <div className="hidden sm:flex flex-col sm:flex-row gap-2">
+            {pendingPayment?.reference && (
+              <Button
+                onClick={confirmPayment}
+                className={`${primaryBtn} bg-sky-600 hover:bg-sky-700 text-white`}
+              >
+                Confirm payment
+              </Button>
+            )}
             <Button
               onClick={pay}
               disabled={paying}
               className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700 text-white`}
             >
-              {paying ? <Spinner label="Processing…" /> : 'Pay application fee'}
+              {paying ? <Spinner label="Processing…" /> : pendingPayment?.reference ? 'Pay again' : 'Pay application fee'}
             </Button>
           </div>
+          {pendingPayment?.reference && (
+            <p className="hidden sm:block text-xs text-slate-600">
+              Already paid on AlatPay but still pending here? Use <span className="font-medium">Confirm payment</span> to check again.
+            </p>
+          )}
         </Card>
       )}
 
@@ -418,13 +441,21 @@ export default function Apply() {
         </div>
       )}
       {app && !feePaid && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden space-y-2">
+          {pendingPayment?.reference && (
+            <Button
+              onClick={confirmPayment}
+              className={`${primaryBtn} bg-sky-600 hover:bg-sky-700 text-white`}
+            >
+              Confirm payment
+            </Button>
+          )}
           <Button
             onClick={pay}
             disabled={paying}
             className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700 text-white`}
           >
-            {paying ? <Spinner label="Processing…" /> : 'Pay application fee'}
+            {paying ? <Spinner label="Processing…" /> : pendingPayment?.reference ? 'Pay again' : 'Pay application fee'}
           </Button>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
 import { DocumentPreviewThumb } from '../components/DocumentPreviewThumb';
@@ -8,7 +8,7 @@ import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
-import { startOnlineCheckout } from '../lib/onlinePayment';
+import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 
 const WALLET_QUICK_AMOUNTS = [5000, 10000, 20000, 50000];
 const ONLINE_FEE_CATEGORIES = ['application_fee', 'acceptance_fee', 'transcript'];
@@ -340,6 +340,7 @@ export function WalletPage() {
 export function Invoices() {
   const { auth } = useAuth();
   const toast = useToast();
+  const nav = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<number | null>(null);
@@ -761,13 +762,31 @@ export function Invoices() {
                           ) : isCancelled ? (
                             <span className="text-xs text-slate-500">Disabled</span>
                           ) : isOnlineFee(row.category) ? (
-                            <Button
-                              onClick={() => payOnline(row.id)}
-                              disabled={payingId === row.id}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm !px-3 !py-1.5 text-xs"
-                            >
-                              {payingId === row.id ? <Spinner label="Opening…" /> : 'Pay online'}
-                            </Button>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {row.pending_online_payment?.reference && (
+                                <Button
+                                  onClick={() => {
+                                    if (!confirmPendingOnlinePayment(nav, row.pending_online_payment)) {
+                                      toast.error('No pending online payment was found for this invoice.');
+                                    }
+                                  }}
+                                  className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm !px-3 !py-1.5 text-xs"
+                                >
+                                  Confirm payment
+                                </Button>
+                              )}
+                              <Button
+                                onClick={() => payOnline(row.id)}
+                                disabled={payingId === row.id}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm !px-3 !py-1.5 text-xs"
+                              >
+                                {payingId === row.id
+                                  ? <Spinner label="Opening…" />
+                                  : row.pending_online_payment?.reference
+                                    ? 'Pay again'
+                                    : 'Pay online'}
+                              </Button>
+                            </div>
                           ) : auth?.is_student ? (
                             <Button
                               onClick={() => setConfirmInvoice(row)}
