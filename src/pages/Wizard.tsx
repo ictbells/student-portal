@@ -187,6 +187,14 @@ const DE_CLASSIFICATIONS = [
 const DE_ENTRY_LEVELS = ['200', '300'];
 const TRANSFER_ENTRY_LEVELS = ['200', '300', '400'];
 
+/** UI shows "200 Level" even when state is blank (`value || '200'`); persist a real code. */
+function normalizeEntryLevel(raw: unknown, allowed: string[], fallback: string): string {
+  const text = String(raw ?? '').trim();
+  if (!text) return fallback;
+  const digits = text.replace(/\s*Level$/i, '').trim();
+  return allowed.includes(digits) ? digits : fallback;
+}
+
 function emptyPriorDegree() {
   return {
     degree_title: '',
@@ -511,10 +519,15 @@ export default function Wizard() {
         ...emptyDirectEntry(appData?.jamb_registration || auth?.user?.jamb_registration),
         ...nextPayload,
         jamb_de_number: nextPayload.jamb_de_number || appData?.jamb_registration || auth?.user?.jamb_registration || '',
+        requested_entry_level: normalizeEntryLevel(nextPayload.requested_entry_level, DE_ENTRY_LEVELS, '200'),
       };
     }
     if (steps[stepIndex].key === 'transfer_background') {
-      nextPayload = { ...emptyTransferBackground(), ...nextPayload };
+      nextPayload = {
+        ...emptyTransferBackground(),
+        ...nextPayload,
+        requested_entry_level: normalizeEntryLevel(nextPayload.requested_entry_level, TRANSFER_ENTRY_LEVELS, '200'),
+      };
     }
     if (steps[stepIndex].key === 'pg_background') {
       nextPayload = {
@@ -656,6 +669,13 @@ export default function Wizard() {
           has_transfer_approval: !!payload.has_transfer_approval,
           credits_earned: payload.credits_earned === '' || payload.credits_earned == null ? null : Number(payload.credits_earned),
           cgpa: payload.cgpa === '' || payload.cgpa == null ? null : Number(payload.cgpa),
+          requested_entry_level: normalizeEntryLevel(payload.requested_entry_level, TRANSFER_ENTRY_LEVELS, '200'),
+        };
+      }
+      if (steps[idx].key === 'direct_entry') {
+        body = {
+          ...payload,
+          requested_entry_level: normalizeEntryLevel(payload.requested_entry_level, DE_ENTRY_LEVELS, '200'),
         };
       }
       const { data } = await api.post(`/api/applications/${app.id}/steps`, { step_key: steps[idx].key, payload: body });
