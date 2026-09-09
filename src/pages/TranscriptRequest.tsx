@@ -276,6 +276,8 @@ export default function TranscriptRequestPage() {
             Need your grades online only?{' '}
             <AuthLink to="/login">Sign in</AuthLink>
             {' '}for an unofficial transcript.
+            {' · '}
+            <AuthLink to="/request-pay">Other requests & pay</AuthLink>
           </p>
         )}
       >

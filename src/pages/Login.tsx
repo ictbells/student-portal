@@ -66,6 +66,12 @@ export default function Login() {
           <p className="text-slate-500">
             New applicant? <AuthLink to="/signup">Create account</AuthLink>
           </p>
+          <p className="text-slate-500 text-sm">
+            Outside login:{' '}
+            <AuthLink to="/transcript-request">Official transcript</AuthLink>
+            {' · '}
+            <AuthLink to="/request-pay">Other requests & pay</AuthLink>
+          </p>
         </div>
       }
     >

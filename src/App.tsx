@@ -22,6 +22,8 @@ import Referee from './pages/Referee';
 import NotFound from './pages/NotFound';
 import TranscriptRequestPage from './pages/TranscriptRequest';
 import TranscriptRequestCallback from './pages/TranscriptRequestCallback';
+import RequestPayPage from './pages/RequestPay';
+import RequestPayCallback from './pages/RequestPayCallback';
 import UnsignedTranscript from './pages/UnsignedTranscript';
 import FinancialStatus from './pages/FinancialStatus';
 import VerifyNin from './pages/VerifyNin';
@@ -68,6 +70,8 @@ export default function App() {
       <Route path="/transcript-request" element={<TranscriptRequestPage />} />
       <Route path="/transcript-request/callback" element={<TranscriptRequestCallback />} />
       <Route path="/transcript-request/:channel" element={<TranscriptRequestPage />} />
+      <Route path="/request-pay" element={<RequestPayPage />} />
+      <Route path="/request-pay/callback" element={<RequestPayCallback />} />
       <Route path="/" element={<Guard><StudentNinGuard><Shell /></StudentNinGuard></Guard>}>
         <Route index element={<Home />} />
         <Route path="apply" element={<Apply />} />

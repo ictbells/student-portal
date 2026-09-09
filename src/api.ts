@@ -24,7 +24,7 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const path = window.location.pathname;
-    if (err.response?.status === 401 && !path.includes('/login') && !path.includes('/signup') && !path.includes('/forgot-password') && !path.includes('/reset-password') && !path.includes('/payments/callback') && !path.includes('/transcript-request')) {
+    if (err.response?.status === 401 && !path.includes('/login') && !path.includes('/signup') && !path.includes('/forgot-password') && !path.includes('/reset-password') && !path.includes('/payments/callback') && !path.includes('/transcript-request') && !path.includes('/request-pay')) {
       sessionStorage.removeItem('bells_student_token');
       window.location.href = `${import.meta.env.BASE_URL}login`.replace('//', '/');
     }
