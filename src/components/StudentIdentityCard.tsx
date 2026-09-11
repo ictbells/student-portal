@@ -40,7 +40,7 @@ export function StudentIdentityCard() {
       : 'bg-slate-100 text-slate-700 ring-slate-200';
 
   const snapshot = [
-    { label: 'Level', value: display(student.current_level) },
+    { label: 'Level', value: display(student.level_label || student.current_level) },
     { label: 'Department', value: department?.name || '—' },
     { label: 'Session', value: sessionLabel },
     { label: 'Registration', value: registrationStatus },

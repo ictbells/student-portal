@@ -153,7 +153,7 @@ export default function Profile() {
         <Section title="Personal details">
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Matriculation number" value={display(student.matric_number)} mono />
-            <Field label="Current level" value={display(student.current_level)} />
+            <Field label="Current level" value={display(student.level_label || student.current_level)} />
             <Field label="Studentship" value={display(student.status)} />
             {student.graduated_at && (
               <Field label="Graduated" value={display(student.graduated_at)} />
