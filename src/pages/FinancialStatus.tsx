@@ -7,6 +7,7 @@ import { PageHeader } from '../components/portal';
 import { Alert, Spinner } from '../components/ui';
 import { useToast } from '../components/toast';
 import { formatNaira } from '../lib/money';
+import { studentLevelLabel } from '../lib/studentLevel';
 
 type InvoiceItem = {
   id?: number;
@@ -402,7 +403,7 @@ export default function FinancialStatus() {
       <PageHeader
         eyebrow="Fees"
         title="Financial status"
-        description={[student.matric_number || student.student_number, student.program, student.level_label || (student.current_level ? `${student.current_level}L` : null)].filter(Boolean).join(' · ') || 'Your bursary position: billed, paid, and outstanding.'}
+        description={[student.matric_number || student.student_number, student.program, studentLevelLabel(student, '')].filter(Boolean).join(' · ') || 'Your bursary position: billed, paid, and outstanding.'}
       />
 
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 p-5 sm:p-8 text-white shadow-lg">

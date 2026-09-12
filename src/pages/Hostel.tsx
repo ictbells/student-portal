@@ -7,6 +7,7 @@ import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
+import { studentLevelLabel } from '../lib/studentLevel';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -434,7 +435,7 @@ export default function Hostel() {
 
         <Section title="Selection window" description="Hostel officers open this by category and level. Opening a level lets you request a bed now. Last session’s room is kept in history so you can choose again for this level.">
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Your level" value={data?.level ? `${data.level}L` : '—'} />
+            <Field label="Your level" value={data?.level_label || studentLevelLabel(auth?.user?.student) || (data?.level ? `${data.level}L` : '—')} />
             <Field label="Category" value={titleCase(data?.category)} />
             <Field label="Window" value={windowOpen ? 'Open' : 'Closed'} />
             <Field label="Tuition paid" value={`${Number.isFinite(tuitionPercent) ? tuitionPercent : 0}% · ${tuitionOk ? 'eligible' : 'need 25%'}`} />

@@ -6,6 +6,7 @@ import { PageHeader } from './portal';
 import { PassportPhoto } from './PassportPhoto';
 import { Card } from './ui';
 import { formatNaira } from '../lib/money';
+import { studentLevelLabel } from '../lib/studentLevel';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
 
@@ -84,7 +85,7 @@ export function StudentCampusDashboard() {
       {
         label: 'Programme',
         value: student?.program?.name || app?.program?.name || '—',
-        hint: student?.level ? `Level ${student.level}` : 'Registered programme',
+        hint: studentLevelLabel(student, '') || 'Registered programme',
       },
       {
         label: 'Wallet balance',

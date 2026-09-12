@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useAuth } from '../auth';
 import { PassportPhoto } from './PassportPhoto';
 import { storageUrl } from '../lib/storage';
+import { studentLevelLabel } from '../lib/studentLevel';
 
 function display(value?: string | number | null) {
   if (value == null || value === '') return '—';
@@ -40,7 +41,7 @@ export function StudentIdentityCard() {
       : 'bg-slate-100 text-slate-700 ring-slate-200';
 
   const snapshot = [
-    { label: 'Level', value: display(student.level_label || student.current_level) },
+    { label: 'Level', value: display(studentLevelLabel(student)) },
     { label: 'Department', value: department?.name || '—' },
     { label: 'Session', value: sessionLabel },
     { label: 'Registration', value: registrationStatus },
