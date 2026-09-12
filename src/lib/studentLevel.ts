@@ -2,12 +2,30 @@ type StudentLike = {
   level_label?: string | null;
   current_level?: string | number | null;
   study_level?: string | null;
+  program?: string | { name?: string | null; code?: string | null; study_level?: string | null } | null;
+  matric_number?: string | null;
+  student_number?: string | null;
   application?: { entry_mode?: string | null } | null;
 } | null | undefined;
 
+function programText(student: StudentLike): string {
+  const program = student?.program;
+  if (typeof program === 'string') {
+    return program;
+  }
+  return [program?.name, program?.code].filter(Boolean).join(' ');
+}
+
 function isJupeb(student: StudentLike): boolean {
   const track = String(student?.study_level || student?.application?.entry_mode || '').toLowerCase();
-  return track === 'jupeb';
+  if (track === 'jupeb') {
+    return true;
+  }
+  if (/jupeb/i.test(programText(student))) {
+    return true;
+  }
+  const matric = String(student?.matric_number || student?.student_number || '').replace(/\s+/g, '');
+  return /^J\//i.test(matric);
 }
 
 function isNumericBand(value: string): boolean {
