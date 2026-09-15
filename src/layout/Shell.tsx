@@ -57,9 +57,11 @@ function navItems(auth: ReturnType<typeof useAuth>['auth']) {
   if (auth?.is_student && auth.nin_verified !== true) {
     return [{ to: '/verify-nin', label: 'Verify NIN', icon: 'apply', show: true }];
   }
+  const formStages = ['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'];
+  const onApplicationForm = formStages.includes(auth?.lifecycle_stage || '');
   const items = [
     { to: '/', label: 'Home', icon: 'home', show: true },
-    { to: '/apply', label: 'Apply', icon: 'apply', show: !auth?.is_student || !!auth?.can_apply_again },
+    { to: '/apply', label: 'Apply', icon: 'apply', show: onApplicationForm || !!auth?.can_start_application },
     { to: '/wizard', label: 'Application form', icon: 'wizard', show: (!auth?.is_student || !!auth?.can_apply_again) && !!auth?.portal_access && ['fee_paid', 'form_in_progress'].includes(auth?.lifecycle_stage || '') },
     { to: '/status', label: hasPendingAdmissionOffer(auth) ? 'Accept offer' : 'Status', icon: 'status', show: !!auth?.lifecycle_stage && auth.lifecycle_stage !== 'started' && auth.lifecycle_stage !== 'matriculated' },
     { to: '/invoices', label: 'Transaction history', icon: 'invoices', show: true },

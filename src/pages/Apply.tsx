@@ -11,6 +11,7 @@ import { storageUrl } from '../lib/storage';
 
 const JAMB_ENTRY_MODES = ['utme', 'de'];
 const IN_PROGRESS_STAGES = ['started', 'awaiting_application_fee', 'fee_paid', 'form_in_progress'];
+const CLOSED_STAGES = ['withdrawn', 'rejected', 'matriculated'];
 
 function biodataPhotoPath(app: any): string | null {
   const payload = app?.steps?.find((s: any) => s.step_key === 'biodata')?.payload;
@@ -105,10 +106,11 @@ export default function Apply() {
     api.get('/api/applications').then((r) => {
       const rows = Array.isArray(r.data?.data) ? r.data.data : (Array.isArray(r.data) ? r.data : []);
       const inProgress = rows.find((row: { stage?: string }) => IN_PROGRESS_STAGES.includes(row.stage || ''));
-      if (!inProgress?.id) return;
-      api.get(`/api/applications/${inProgress.id}`)
+      const open = inProgress || rows.find((row: { stage?: string }) => row.stage && !CLOSED_STAGES.includes(row.stage));
+      if (!open?.id) return;
+      api.get(`/api/applications/${open.id}`)
         .then((detail) => setApp(detail.data))
-        .catch(() => setApp(inProgress));
+        .catch(() => setApp(open));
     }).catch(() => {});
   }, []);
 
@@ -222,6 +224,11 @@ export default function Apply() {
 
   if (auth?.is_student && !auth.can_apply_again) {
     return <Navigate to={auth.nin_verified ? '/' : '/verify-nin'} replace />;
+  }
+
+  const onFormPath = IN_PROGRESS_STAGES.includes(auth?.lifecycle_stage || '');
+  if (auth && !onFormPath && auth.can_start_application === false) {
+    return <Navigate to={auth.lifecycle_stage ? '/status' : '/'} replace />;
   }
 
   const primaryBtn = 'w-full min-h-12 sm:min-h-11 sm:w-auto touch-manipulation shadow-sm';
