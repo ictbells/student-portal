@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
+import { PayApplicationFeeButton } from '../components/PayApplicationFeeButton';
 import { PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { StudentIdentityCard } from '../components/StudentIdentityCard';
@@ -236,6 +237,13 @@ export default function Home() {
                   >
                     Accept admission
                   </button>
+                ) : auth?.unpaid_application_fee || auth?.lifecycle_stage === 'awaiting_application_fee' ? (
+                  <PayApplicationFeeButton
+                    className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-sm transition disabled:opacity-60"
+                    busyLabel="Opening payment…"
+                  >
+                    Pay application fee
+                  </PayApplicationFeeButton>
                 ) : (
                   <Link
                     to={cta.to}
@@ -253,7 +261,7 @@ export default function Home() {
       {!auth?.portal_access && auth?.unpaid_application_fee && (
         <Alert tone="warning">
           Pay your application fee to unlock the form.{' '}
-          <Link to="/apply" className="underline font-medium">Go to payment</Link>
+          <PayApplicationFeeButton className="underline font-medium disabled:opacity-60">Go to payment</PayApplicationFeeButton>
         </Alert>
       )}
 

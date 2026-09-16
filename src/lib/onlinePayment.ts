@@ -112,6 +112,50 @@ async function openAlatpayCheckout(data: PaymentInitializeResponse): Promise<voi
   });
 }
 
+type InvoiceCheckoutClient = {
+  post: (url: string, body?: unknown) => Promise<{ data: PaymentInitializeResponse }>;
+  get: (url: string) => Promise<{ data?: any }>;
+};
+
+export async function resolveApplicationFeeInvoiceId(
+  client: InvoiceCheckoutClient,
+  options?: { applicationId?: number | null; application?: any },
+): Promise<number | null> {
+  const fromApp = options?.application?.application_fee_invoice_id
+    || options?.application?.application_fee_invoice?.id;
+  if (fromApp) {
+    return Number(fromApp);
+  }
+
+  if (options?.applicationId) {
+    const { data } = await client.get(`/api/applications/${options.applicationId}`);
+    const id = data?.application_fee_invoice_id || data?.application_fee_invoice?.id;
+    if (id) {
+      return Number(id);
+    }
+  }
+
+  const { data } = await client.get('/api/invoices?category=application_fee&per_page=50');
+  const rows = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+  const fee = rows.find((row: any) =>
+    row?.category === 'application_fee' && ['unpaid', 'partial'].includes(String(row?.status || '')),
+  );
+  return fee?.id ? Number(fee.id) : null;
+}
+
+export async function startStudentInvoiceCheckout(
+  client: InvoiceCheckoutClient,
+  invoiceId: number,
+): Promise<'demo' | 'redirected'> {
+  const { data } = await client.post('/api/payments/initialize', {
+    invoice_id: invoiceId,
+    portal: 'student',
+  });
+  return startOnlineCheckout(data, {
+    verifyDemo: (reference) => client.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
+  });
+}
+
 export async function startOnlineCheckout(
   data: PaymentInitializeResponse | null | undefined,
   options?: { verifyDemo?: (reference: string) => Promise<unknown> },

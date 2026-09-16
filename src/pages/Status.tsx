@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../auth';
+import { PayApplicationFeeButton } from '../components/PayApplicationFeeButton';
 import { Breadcrumb, PageHeader, StepIndicator } from '../components/portal';
 import { PassportPhoto } from '../components/PassportPhoto';
 import { useToast } from '../components/toast';
@@ -337,7 +338,7 @@ export default function Status() {
       {auth?.unpaid_application_fee && (
         <Alert tone="warning">
           Your application fee is unpaid. Payment unlocks the form.{' '}
-          <Link to="/apply" className="underline font-medium">Pay now</Link>
+          <PayApplicationFeeButton className="underline font-medium disabled:opacity-60" />
         </Alert>
       )}
 

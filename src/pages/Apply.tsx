@@ -6,7 +6,7 @@ import { IdentityCard, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
 import { formatNaira } from '../lib/money';
-import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
+import { confirmPendingOnlinePayment, resolveApplicationFeeInvoiceId, startStudentInvoiceCheckout } from '../lib/onlinePayment';
 import { storageUrl } from '../lib/storage';
 
 const JAMB_ENTRY_MODES = ['utme', 'de'];
@@ -183,21 +183,22 @@ export default function Apply() {
   const pay = async () => {
     setPaying(true);
     try {
-      const invoiceId = app.application_fee_invoice_id || app.application_fee_invoice?.id;
+      const invoiceId = await resolveApplicationFeeInvoiceId(api, {
+        applicationId: app?.id || auth?.application_id,
+        application: app,
+      });
       if (!invoiceId) {
-        toast.error('Application fee invoice is missing. Please refresh and try again.');
+        toast.error('Application fee invoice is missing. Open transaction history to pay.');
+        nav('/invoices');
         return;
       }
-      const { data } = await api.post('/api/payments/initialize', {
-        invoice_id: invoiceId,
-        portal: 'student',
-      });
-      const outcome = await startOnlineCheckout(data, {
-        verifyDemo: (reference) => api.get(`/api/payments/verify/${encodeURIComponent(reference)}`),
-      });
+      const outcome = await startStudentInvoiceCheckout(api, invoiceId);
       if (outcome === 'demo') {
-        const { data: refreshedApp } = await api.get(`/api/applications/${app.id}`);
-        setApp(refreshedApp);
+        const appId = app?.id || auth?.application_id;
+        if (appId) {
+          const { data: refreshedApp } = await api.get(`/api/applications/${appId}`);
+          setApp(refreshedApp);
+        }
         await refresh();
         toast.success('Application fee paid');
       }
@@ -227,7 +228,7 @@ export default function Apply() {
   }
 
   const onFormPath = IN_PROGRESS_STAGES.includes(auth?.lifecycle_stage || '');
-  if (auth && !onFormPath && auth.can_start_application === false) {
+  if (auth && !onFormPath && !auth.unpaid_application_fee && auth.can_start_application === false) {
     return <Navigate to={auth.lifecycle_stage ? '/status' : '/'} replace />;
   }
 
@@ -382,7 +383,7 @@ export default function Apply() {
             )}
           </dl>
 
-          <div className="hidden sm:flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {pendingPayment?.reference && (
               <Button
                 onClick={confirmPayment}
@@ -444,25 +445,6 @@ export default function Apply() {
             className={`${primaryBtn} bg-sky-600 hover:bg-sky-700 text-white`}
           >
             {starting ? <Spinner label="Starting…" /> : 'Create application'}
-          </Button>
-        </div>
-      )}
-      {app && !feePaid && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden space-y-2">
-          {pendingPayment?.reference && (
-            <Button
-              onClick={confirmPayment}
-              className={`${primaryBtn} bg-sky-600 hover:bg-sky-700 text-white`}
-            >
-              Confirm payment
-            </Button>
-          )}
-          <Button
-            onClick={pay}
-            disabled={paying}
-            className={`${primaryBtn} bg-emerald-600 hover:bg-emerald-700 text-white`}
-          >
-            {paying ? <Spinner label="Processing…" /> : pendingPayment?.reference ? 'Pay again' : 'Pay application fee'}
           </Button>
         </div>
       )}
