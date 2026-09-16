@@ -520,7 +520,7 @@ export default function Hostel() {
               <div>
                 <h3 id="select-bed-title" className="font-semibold text-slate-900">Select a hostel bed</h3>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  Choose a hostel, then a block. Rooms in that block appear as a grid; occupied rooms are greyed out.
+                  Choose a hostel assigned to your level, then a block. Only rooms for your level appear in the grid; occupied rooms are greyed out.
                   For bunk rooms, pick a free Lower or Upper bunk. Staff must approve your request before the bed is allocated.
                   {selectedHostel
                     ? (selectedHostel.due_required && Number(selectedHostel.due_amount) > 0
@@ -541,7 +541,7 @@ export default function Hostel() {
               <div>
                 <label htmlFor="hostel-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">1. Hostel</label>
                 {hostels.length === 0 ? (
-                  <EmptyState message="No eligible hostels are open for your category." />
+                  <EmptyState message="No hostels have rooms assigned to your level." />
                 ) : (
                   <select
                     id="hostel-select"
@@ -558,6 +558,7 @@ export default function Hostel() {
                     {hostels.map((hostel: any) => (
                       <option key={hostel.id} value={hostel.id}>
                         {hostel.name}{hostel.gender ? ` · ${titleCase(hostel.gender)}` : ''}
+                        {typeof hostel.available_rooms === 'number' ? ` · ${hostel.available_rooms} free room${hostel.available_rooms === 1 ? '' : 's'}` : ''}
                       </option>
                     ))}
                   </select>
@@ -595,7 +596,7 @@ export default function Hostel() {
                     <p className="text-[11px] text-slate-400">Occupied rooms are greyed out</p>
                   </div>
                   {rooms.length === 0 ? (
-                    <EmptyState message="This block has no rooms yet." />
+                    <EmptyState message="This block has no rooms for your level." />
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                       {rooms.map((room: any) => {

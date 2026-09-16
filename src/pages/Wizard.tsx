@@ -531,9 +531,11 @@ export default function Wizard() {
     }
     if (steps[stepIndex].key === 'pg_background') {
       nextPayload = {
-        nysc_status: 'completed',
         professional_qualifications: [],
         ...nextPayload,
+        // Keep after spread so null/'' from a saved step cannot wipe the default while the
+        // select still visually shows "Completed" via `value={nysc_status || 'completed'}`.
+        nysc_status: nextPayload.nysc_status || 'completed',
         prior_degrees: nextPayload.prior_degrees?.length ? nextPayload.prior_degrees : [emptyPriorDegree()],
       };
     }
@@ -676,6 +678,12 @@ export default function Wizard() {
         body = {
           ...payload,
           requested_entry_level: normalizeEntryLevel(payload.requested_entry_level, DE_ENTRY_LEVELS, '200'),
+        };
+      }
+      if (steps[idx].key === 'pg_background') {
+        body = {
+          ...payload,
+          nysc_status: payload.nysc_status || 'completed',
         };
       }
       const { data } = await api.post(`/api/applications/${app.id}/steps`, { step_key: steps[idx].key, payload: body });
@@ -1698,7 +1706,16 @@ export default function Wizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label required>Status</Label>
-                  <select className={selectClass} value={payload.nysc_status || 'completed'} onChange={(e) => setPayload({ ...payload, nysc_status: e.target.value })}>
+                  <select
+                    className={selectClass}
+                    value={payload.nysc_status || 'completed'}
+                    onChange={(e) => setPayload({ ...payload, nysc_status: e.target.value })}
+                    onBlur={() => {
+                      if (!payload.nysc_status) {
+                        setPayload({ ...payload, nysc_status: 'completed' });
+                      }
+                    }}
+                  >
                     <option value="completed">Completed (discharge)</option>
                     <option value="exempted">Exempted</option>
                     <option value="not_applicable">Not applicable</option>
