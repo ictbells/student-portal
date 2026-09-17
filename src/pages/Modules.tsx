@@ -358,6 +358,9 @@ export function Invoices() {
     available_installment_percents: number[];
     prior_unpaid_count: number;
     prior_unpaid_amount: number;
+    semester_fee_required: boolean;
+    semester_fee_invoice_id: number | null;
+    semester_fee_balance: number;
   } | null>(null);
 
   const loadFeeSchedule = () => {
@@ -375,6 +378,9 @@ export function Invoices() {
           : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
         prior_unpaid_count: Number(r.data.prior_unpaid_count ?? 0),
         prior_unpaid_amount: Number(r.data.prior_unpaid_amount ?? 0),
+        semester_fee_required: !!r.data.semester_fee_required,
+        semester_fee_invoice_id: r.data.semester_fee_invoice_id != null ? Number(r.data.semester_fee_invoice_id) : null,
+        semester_fee_balance: Number(r.data.semester_fee_balance ?? 0),
       }))
       .catch(() => setFeeSchedule({
         schedule_set: false,
@@ -383,6 +389,9 @@ export function Invoices() {
         available_installment_percents: TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
         prior_unpaid_count: 0,
         prior_unpaid_amount: 0,
+        semester_fee_required: false,
+        semester_fee_invoice_id: null,
+        semester_fee_balance: 0,
       }));
   };
 
@@ -534,13 +543,20 @@ export function Invoices() {
   const availableInstallments = useMemo(() => {
     const paidPercent = Number(feeSchedule?.tuition_percent_paid ?? 0);
     const fromApi = feeSchedule?.available_installment_percents;
-    const base = fromApi
+    // Prefer the API list; never fall back to all bands once the schedule payload exists.
+    const base = Array.isArray(fromApi)
       ? fromApi
-      : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value);
+      : (feeSchedule ? [] : TUITION_INSTALLMENT_OPTIONS.map((option) => option.value));
     return base.filter((percent) => percent > paidPercent);
   }, [feeSchedule]);
   const tuitionFullyPaid = programmeFeeReady && availableInstallments.length === 0 && !(feeSchedule?.prior_unpaid_count);
   const hasPriorUnpaid = Number(feeSchedule?.prior_unpaid_count ?? 0) > 0;
+  const semesterFeeRequired = !!feeSchedule?.semester_fee_required;
+  const canPayInvoice = (row: { id?: number; category?: string }) => {
+    if (!semesterFeeRequired) return true;
+    return String(row.category || '') === 'semester_fee'
+      || Number(row.id) === Number(feeSchedule?.semester_fee_invoice_id);
+  };
 
   useEffect(() => {
     if (!availableInstallments.length) return;
@@ -568,6 +584,12 @@ export function Invoices() {
         />
       </div>
 
+      {auth?.is_student && semesterFeeRequired && (
+        <Alert tone="warning">
+          Pay the semester fee ({formatNaira(feeSchedule?.semester_fee_balance ?? 0)}) before other charges. Wallet top-up is still available.
+        </Alert>
+      )}
+
       {auth?.is_student && hasPriorUnpaid && (
         <Alert tone="warning">
           Pay {formatNaira(feeSchedule?.prior_unpaid_amount ?? 0)} from previous sessions and levels before current-session tuition. Open those invoices below and pay them first.
@@ -588,6 +610,8 @@ export function Invoices() {
               <p className="text-sm text-slate-500 mt-1">
                 {!programmeFeeReady
                   ? 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'
+                  : semesterFeeRequired
+                    ? 'Pay the semester fee for this term first. Tuition installments stay locked until it is settled.'
                   : hasPriorUnpaid
                     ? 'Settle previous session invoices first. Current-session installments stay locked until those are paid.'
                     : tuitionFullyPaid
@@ -600,7 +624,7 @@ export function Invoices() {
                 </p>
               )}
             </div>
-            {!tuitionFullyPaid && !hasPriorUnpaid && (
+            {!tuitionFullyPaid && !hasPriorUnpaid && !semesterFeeRequired && (
             <div className="flex flex-wrap items-center gap-2">
               <select
                 className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -777,24 +801,30 @@ export function Invoices() {
                               )}
                               <Button
                                 onClick={() => payOnline(row.id)}
-                                disabled={payingId === row.id}
+                                disabled={payingId === row.id || !canPayInvoice(row)}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm !px-3 !py-1.5 text-xs"
                               >
                                 {payingId === row.id
                                   ? <Spinner label="Opening…" />
-                                  : row.pending_online_payment?.reference
-                                    ? 'Pay again'
-                                    : 'Pay online'}
+                                  : !canPayInvoice(row)
+                                    ? 'Pay semester fee first'
+                                    : row.pending_online_payment?.reference
+                                      ? 'Pay again'
+                                      : 'Pay online'}
                               </Button>
                             </div>
                           ) : auth?.is_student ? (
-                            <Button
-                              onClick={() => setConfirmInvoice(row)}
-                              disabled={payingId === row.id}
-                              className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm !px-3 !py-1.5 text-xs"
-                            >
-                              Pay from wallet
-                            </Button>
+                            canPayInvoice(row) ? (
+                              <Button
+                                onClick={() => setConfirmInvoice(row)}
+                                disabled={payingId === row.id}
+                                className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm !px-3 !py-1.5 text-xs"
+                              >
+                                Pay from wallet
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-amber-700">Pay semester fee first</span>
+                            )
                           ) : (
                             <span className="text-xs text-slate-500">Pay from wallet after admission</span>
                           )}

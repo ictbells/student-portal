@@ -515,10 +515,12 @@ export default function Wizard() {
       nextPayload = withProgrammeChoiceIds(nextPayload, programs);
     }
     if (steps[stepIndex].key === 'direct_entry') {
-      nextPayload = {
+        nextPayload = {
         ...emptyDirectEntry(appData?.jamb_registration || auth?.user?.jamb_registration),
         ...nextPayload,
         jamb_de_number: nextPayload.jamb_de_number || appData?.jamb_registration || auth?.user?.jamb_registration || '',
+        qualification_type: nextPayload.qualification_type || 'nd',
+        qualification_class: nextPayload.qualification_class || 'upper_credit',
         requested_entry_level: normalizeEntryLevel(nextPayload.requested_entry_level, DE_ENTRY_LEVELS, '200'),
       };
     }
@@ -677,6 +679,8 @@ export default function Wizard() {
       if (steps[idx].key === 'direct_entry') {
         body = {
           ...payload,
+          qualification_type: payload.qualification_type || 'nd',
+          qualification_class: payload.qualification_class || 'upper_credit',
           requested_entry_level: normalizeEntryLevel(payload.requested_entry_level, DE_ENTRY_LEVELS, '200'),
         };
       }
