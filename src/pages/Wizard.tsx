@@ -91,7 +91,11 @@ const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed', 'Separated
 const RELIGIONS = ['Christianity', 'Islam', 'Traditional', 'Other'];
 const RELATIONSHIPS = ['Father', 'Mother', 'Guardian', 'Spouse', 'Sibling', 'Uncle', 'Aunt', 'Other'];
 const OLEVEL_EXAM_TYPES = ['WAEC', 'NECO', 'GCE', 'NABTEB', 'Other'];
-const OLEVEL_YEARS = Array.from({ length: 30 }, (_, i) => String(new Date().getFullYear() - i));
+const OLEVEL_YEAR_FROM = 1900;
+const OLEVEL_YEARS = Array.from(
+  { length: new Date().getFullYear() - OLEVEL_YEAR_FROM + 1 },
+  (_, i) => String(new Date().getFullYear() - i),
+);
 
 type OlevelSitting = {
   exam_type: string;
