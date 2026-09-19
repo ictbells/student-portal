@@ -361,6 +361,8 @@ export function Invoices() {
     semester_fee_required: boolean;
     semester_fee_invoice_id: number | null;
     semester_fee_balance: number;
+    semester_fee_amount?: number;
+    semester_fee_error?: string | null;
   } | null>(null);
 
   const loadFeeSchedule = () => {
@@ -381,6 +383,8 @@ export function Invoices() {
         semester_fee_required: !!r.data.semester_fee_required,
         semester_fee_invoice_id: r.data.semester_fee_invoice_id != null ? Number(r.data.semester_fee_invoice_id) : null,
         semester_fee_balance: Number(r.data.semester_fee_balance ?? 0),
+        semester_fee_amount: Number(r.data.semester_fee_amount ?? r.data.semester_fee_balance ?? 0),
+        semester_fee_error: r.data.semester_fee_error ? String(r.data.semester_fee_error) : null,
       }))
       .catch(() => setFeeSchedule({
         schedule_set: false,
@@ -392,6 +396,8 @@ export function Invoices() {
         semester_fee_required: false,
         semester_fee_invoice_id: null,
         semester_fee_balance: 0,
+        semester_fee_amount: 0,
+        semester_fee_error: null,
       }));
   };
 
@@ -587,8 +593,29 @@ export function Invoices() {
       </div>
 
       {auth?.is_student && semesterFeeRequired && (
-        <Alert tone="warning">
-          Pay the semester fee ({formatNaira(feeSchedule?.semester_fee_balance ?? 0)}) before other charges. Wallet top-up is still available.
+        <Alert tone={feeSchedule?.semester_fee_error ? 'error' : 'warning'}>
+          {feeSchedule?.semester_fee_error
+            ? feeSchedule.semester_fee_error
+            : `Pay the semester fee (${formatNaira(feeSchedule?.semester_fee_balance ?? feeSchedule?.semester_fee_amount ?? 0)}) before other charges. Wallet top-up is still available.`}
+          {feeSchedule?.semester_fee_invoice_id ? (
+            <div className="mt-2">
+              <Button
+                className="bg-amber-700 hover:bg-amber-800 text-white"
+                disabled={payingId === feeSchedule.semester_fee_invoice_id}
+                onClick={() => {
+                  const row = rows.find((item) => Number(item.id) === Number(feeSchedule.semester_fee_invoice_id));
+                  if (row) {
+                    setConfirmInvoice(row);
+                  } else {
+                    load();
+                    toast.success('List refreshed. Pay the semester fee invoice below.');
+                  }
+                }}
+              >
+                Pay semester fee
+              </Button>
+            </div>
+          ) : null}
         </Alert>
       )}
 
