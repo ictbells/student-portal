@@ -142,7 +142,12 @@ function InvoiceCard({
     ? [...new Set(arrears.flatMap((item) => [item.session, item.level].filter(Boolean)))].join(' · ')
     : undefined;
   const unpaid = ['unpaid', 'partial'].includes(String(row.status || '').toLowerCase());
-  const [open, setOpen] = useState(unpaid && charges.length > 0);
+  const installmentAmount = Number(row.installment_amount ?? row.amount) || 0;
+  const paidTowardInstallment = Number(row.amount_paid) || 0;
+  // Settlement may mark tuition as "partial" against full_amount even when this installment document is fully paid.
+  const installmentStillDue = installmentAmount - paidTowardInstallment > 0.009;
+  const canPayInvoice = unpaid && installmentStillDue;
+  const [open, setOpen] = useState(canPayInvoice && charges.length > 0);
   const billed = Number(row.amount) || 0;
   const paid = Number(row.amount_paid) || 0;
   const rebate = Number(row.rebate_total) || 0;
@@ -226,7 +231,7 @@ function InvoiceCard({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          {unpaid ? (
+          {canPayInvoice ? (
             <Link
               to="/invoices"
               className="inline-flex min-h-10 items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-sky-700"
