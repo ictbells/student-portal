@@ -552,6 +552,8 @@ export function Invoices() {
   const tuitionFullyPaid = programmeFeeReady && availableInstallments.length === 0 && !(feeSchedule?.prior_unpaid_count);
   const hasPriorUnpaid = Number(feeSchedule?.prior_unpaid_count ?? 0) > 0;
   const semesterFeeRequired = !!feeSchedule?.semester_fee_required;
+  const payOnceOnly = availableInstallments.length === 1 && availableInstallments[0] === 100
+    && Number(feeSchedule?.tuition_percent_paid ?? 0) < 100;
   const canPayInvoice = (row: { id?: number; category?: string }) => {
     if (!semesterFeeRequired) return true;
     return String(row.category || '') === 'semester_fee'
@@ -606,7 +608,9 @@ export function Invoices() {
         <Card className="p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h3 className="font-semibold text-slate-900">Pay tuition by installment</h3>
+              <h3 className="font-semibold text-slate-900">
+                {payOnceOnly ? 'Pay school fees' : 'Pay tuition by installment'}
+              </h3>
               <p className="text-sm text-slate-500 mt-1">
                 {!programmeFeeReady
                   ? 'Tuition installments are unavailable until the bursary assigns fee items to your programme.'
@@ -616,6 +620,8 @@ export function Invoices() {
                     ? 'Settle previous session invoices first. Current-session installments stay locked until those are paid.'
                     : tuitionFullyPaid
                       ? 'Tuition is paid in full. Paid invoices stay in your transaction history for receipts.'
+                      : payOnceOnly
+                        ? 'This programme bills school fees in full (pay at once). Create the invoice, then pay from wallet or online.'
                       : 'Choose the next unpaid share. Already-paid installments stay off this list, and the new invoice only bills unpaid fee items.'}
               </p>
               {programmeFeeReady && programmeFeeTotal != null && (
@@ -649,7 +655,9 @@ export function Invoices() {
                     ? 'Programme fees not assigned'
                     : hasOpenTuition
                       ? 'Open tuition invoice exists'
-                      : 'Create tuition invoice'}
+                      : payOnceOnly
+                        ? 'Create school fees invoice'
+                        : 'Create tuition invoice'}
               </Button>
             </div>
             )}
