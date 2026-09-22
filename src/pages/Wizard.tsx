@@ -109,6 +109,29 @@ function emptySitting(): OlevelSitting {
   return { exam_type: '', exam_center: '', exam_year: '', exam_number: '', results: [{ subject_id: 0, subject_name: '', grade: '' }] };
 }
 
+function sittingHasContent(sitting: unknown): boolean {
+  if (!sitting || typeof sitting !== 'object' || Array.isArray(sitting)) {
+    return false;
+  }
+  const row = sitting as OlevelSitting;
+  if (row.exam_type || row.exam_center || row.exam_year || row.exam_number) {
+    return true;
+  }
+  return (row.results || []).some((r) => Number(r.subject_id) > 0 || !!r.grade);
+}
+
+function asSitting(raw: unknown): OlevelSitting {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ...emptySitting(), results: [] };
+  }
+  const row = raw as Partial<OlevelSitting>;
+  return {
+    ...emptySitting(),
+    ...row,
+    results: Array.isArray(row.results) ? row.results : [],
+  };
+}
+
 type UtmeRow = { subject: string; score: string };
 type UtmeForm = {
   aggregate: string;
@@ -241,19 +264,19 @@ function emptyTransferBackground() {
 function normalizeAcademicPayload(raw: any, fallbackUtme?: any) {
   const base = { ...(raw || {}) };
   let normalized;
-  if (base.first_sitting || base.second_sitting) {
+  if (base.first_sitting || sittingHasContent(base.second_sitting)) {
+    const first = asSitting(base.first_sitting);
+    const second = asSitting(base.second_sitting);
     normalized = {
       ...base,
       first_sitting: {
-        ...emptySitting(),
-        ...(base.first_sitting || {}),
-        results: base.first_sitting?.results?.length ? base.first_sitting.results : emptySitting().results,
+        ...first,
+        results: first.results.length ? first.results : emptySitting().results,
       },
-      second_sitting: base.second_sitting
+      second_sitting: sittingHasContent(base.second_sitting)
         ? {
-            ...emptySitting(),
-            ...base.second_sitting,
-            results: base.second_sitting?.results?.length ? base.second_sitting.results : [],
+            ...second,
+            results: second.results.length ? second.results : emptySitting().results,
           }
         : { ...emptySitting(), results: [] },
     };
@@ -354,6 +377,7 @@ export default function Wizard() {
   const [app, setApp] = useState<any>(null);
   const [idx, setIdx] = useState(0);
   const [payload, setPayload] = useState<any>({});
+  const [secondSittingOpen, setSecondSittingOpen] = useState(false);
   const [nin, setNin] = useState('');
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -388,6 +412,7 @@ export default function Wizard() {
     let stepPayload = step?.payload || {};
     if (activeKey === 'academic_qualifications') {
       stepPayload = normalizeAcademicPayload(stepPayload);
+      setSecondSittingOpen(sittingHasContent(stepPayload.second_sitting));
     }
     if (activeKey === 'utme') {
       stepPayload = { utme: asUtme(stepPayload.utme, candidateUtme) };
@@ -500,6 +525,7 @@ export default function Wizard() {
     let nextPayload = appData.steps?.find((x: any) => x.step_key === steps[stepIndex].key)?.payload || {};
     if (steps[stepIndex].key === 'academic_qualifications') {
       nextPayload = normalizeAcademicPayload(nextPayload, candidateUtme);
+      setSecondSittingOpen(sittingHasContent(nextPayload.second_sitting));
     }
     if (steps[stepIndex].key === 'utme') {
       const academicUtme = appData.steps?.find((x: any) => x.step_key === 'academic_qualifications')?.payload?.utme;
@@ -781,8 +807,26 @@ export default function Wizard() {
   if (!step) {
     return <Alert tone="error">Could not load application steps. <Link to="/apply" className="text-sky-600 underline">Back to apply</Link></Alert>;
   }
-  const firstSitting: OlevelSitting = payload.first_sitting || emptySitting();
-  const secondSitting: OlevelSitting = payload.second_sitting || { ...emptySitting(), results: [] };
+  const firstSitting: OlevelSitting = (() => {
+    if (!payload.first_sitting) return emptySitting();
+    const sitting = asSitting(payload.first_sitting);
+    return {
+      ...sitting,
+      results: sitting.results.length ? sitting.results : emptySitting().results,
+    };
+  })();
+  const showSecondSitting = firstSitting.exam_type !== 'NABTEB'
+    && (secondSittingOpen || sittingHasContent(payload.second_sitting));
+  const secondSitting: OlevelSitting = (() => {
+    const sitting = asSitting(payload.second_sitting);
+    if (!showSecondSitting) {
+      return { ...emptySitting(), results: [] };
+    }
+    return {
+      ...sitting,
+      results: sitting.results.length ? sitting.results : emptySitting().results,
+    };
+  })();
   const bio = biodataPayload(app);
   const passportUrl = storageUrl(bio.photo_path || payload.photo_path) || auth?.nin_identity?.photo_url || null;
   const nyscStatus = app?.steps?.find((s: any) => s.step_key === 'pg_background')?.payload?.nysc_status;
@@ -864,6 +908,9 @@ export default function Wizard() {
   };
 
   const updateSittingMeta = (sitting: 'first_sitting' | 'second_sitting', field: keyof OlevelSitting, value: string) => {
+    if (sitting === 'first_sitting' && field === 'exam_type' && value === 'NABTEB') {
+      setSecondSittingOpen(false);
+    }
     setPayload((prev: any) => {
       const next = {
         ...prev,
@@ -926,6 +973,7 @@ export default function Wizard() {
   };
 
   const enableSecondSitting = () => {
+    setSecondSittingOpen(true);
     setPayload((prev: any) => ({
       ...prev,
       second_sitting: emptySitting(),
@@ -933,6 +981,7 @@ export default function Wizard() {
   };
 
   const clearSecondSitting = () => {
+    setSecondSittingOpen(false);
     setPayload((prev: any) => ({
       ...prev,
       second_sitting: { ...emptySitting(), results: [] },
@@ -1494,7 +1543,7 @@ export default function Wizard() {
 
             {firstSitting.exam_type === 'NABTEB' ? (
               <p className="text-sm text-slate-500">NABTEB uses one sitting only and cannot be combined with WAEC, NECO, GCE, or another sitting.</p>
-            ) : (secondSitting.results?.length || secondSitting.exam_type || secondSitting.exam_number) ? (
+            ) : showSecondSitting ? (
               renderSitting('second_sitting', "O'Level — Second sitting", secondSitting, true)
             ) : (
               <Button type="button" onClick={enableSecondSitting} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
