@@ -355,6 +355,9 @@ export function Invoices() {
     installment_percent: number;
     amount: number;
     full_amount: number;
+    billed_before: number;
+    share_of_session_percent: number | null;
+    remaining_after: number;
     items: { description: string; amount: number }[];
   } | null>(null);
   const [feeSchedule, setFeeSchedule] = useState<{
@@ -540,6 +543,9 @@ export function Invoices() {
         installment_percent: Number(data.installment_percent ?? installmentPercent),
         amount: Number(data.amount ?? 0),
         full_amount: Number(data.full_amount ?? 0),
+        billed_before: Number(data.billed_before ?? 0),
+        share_of_session_percent: data.share_of_session_percent != null ? Number(data.share_of_session_percent) : null,
+        remaining_after: Number(data.remaining_after ?? 0),
         items: Array.isArray(data.items) ? data.items : [],
       });
     } catch (e: any) {
@@ -1056,10 +1062,38 @@ export function Invoices() {
                   </ul>
                 </div>
               )}
-              <div className="flex justify-between gap-3 text-sm">
-                <span className="text-slate-500">Amount to pay</span>
-                <span className="text-base font-semibold tabular-nums text-slate-900">{formatNaira(tuitionPreview.amount)}</span>
-              </div>
+              <dl className="space-y-1.5 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-slate-500">Amount to pay</dt>
+                  <dd className="text-base font-semibold tabular-nums text-slate-900">{formatNaira(tuitionPreview.amount)}</dd>
+                </div>
+                {tuitionPreview.share_of_session_percent != null && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500">Share of session school fees</dt>
+                    <dd className="tabular-nums text-slate-800">{tuitionPreview.share_of_session_percent}%</dd>
+                  </div>
+                )}
+                {tuitionPreview.billed_before > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500">Already billed this session</dt>
+                    <dd className="tabular-nums text-slate-800">{formatNaira(tuitionPreview.billed_before)}</dd>
+                  </div>
+                )}
+                {tuitionPreview.full_amount > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500">Remaining after this invoice</dt>
+                    <dd className="tabular-nums text-slate-800">{formatNaira(tuitionPreview.remaining_after)}</dd>
+                  </div>
+                )}
+              </dl>
+              {tuitionPreview.share_of_session_percent != null
+                && tuitionPreview.billed_before <= 0
+                && Math.abs(tuitionPreview.share_of_session_percent - tuitionPreview.installment_percent) >= 5 && (
+                <Alert tone="info">
+                  This installment follows your programme&apos;s fee schedule, so it is {tuitionPreview.share_of_session_percent}% of
+                  the session total rather than exactly {tuitionPreview.installment_percent}%. Some fees are billed in full in this installment.
+                </Alert>
+              )}
             </div>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-100 px-4 py-4 sm:px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <Button
