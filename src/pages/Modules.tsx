@@ -351,6 +351,12 @@ export function Invoices() {
   const [creatingTuition, setCreatingTuition] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [confirmInvoice, setConfirmInvoice] = useState<any | null>(null);
+  const [tuitionPreview, setTuitionPreview] = useState<{
+    installment_percent: number;
+    amount: number;
+    full_amount: number;
+    items: { description: string; amount: number }[];
+  } | null>(null);
   const [feeSchedule, setFeeSchedule] = useState<{
     schedule_set: boolean;
     total_amount: number | null;
@@ -420,16 +426,17 @@ export function Invoices() {
   useEffect(() => { loadFeeSchedule(); }, [auth?.is_student]);
 
   useEffect(() => {
-    if (!receiptHtml && !confirmInvoice) return;
+    if (!receiptHtml && !confirmInvoice && !tuitionPreview) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setReceiptHtml(null);
         setConfirmInvoice(null);
+        setTuitionPreview(null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [receiptHtml, confirmInvoice]);
+  }, [receiptHtml, confirmInvoice, tuitionPreview]);
 
   const payOnline = async (id: number) => {
     setPayingId(id);
@@ -523,13 +530,34 @@ export function Invoices() {
     frame?.contentWindow?.print();
   };
 
+  const previewTuitionInstallment = async () => {
+    setCreatingTuition(true);
+    try {
+      const { data } = await api.post('/api/invoices/tuition-installment/preview', {
+        installment_percent: installmentPercent,
+      });
+      setTuitionPreview({
+        installment_percent: Number(data.installment_percent ?? installmentPercent),
+        amount: Number(data.amount ?? 0),
+        full_amount: Number(data.full_amount ?? 0),
+        items: Array.isArray(data.items) ? data.items : [],
+      });
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Could not work out the tuition amount.');
+    } finally {
+      setCreatingTuition(false);
+    }
+  };
+
   const createTuitionInstallment = async () => {
+    if (!tuitionPreview) return;
     setCreatingTuition(true);
     try {
       await api.post('/api/invoices/tuition-installment', {
-        installment_percent: installmentPercent,
+        installment_percent: tuitionPreview.installment_percent,
       });
       toast.success('Tuition invoice created');
+      setTuitionPreview(null);
       load();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Could not create tuition invoice.');
@@ -672,12 +700,12 @@ export function Invoices() {
                 ))}
               </select>
               <Button
-                onClick={createTuitionInstallment}
+                onClick={previewTuitionInstallment}
                 disabled={!programmeFeeReady || hasOpenTuition || creatingTuition || !availableInstallments.length}
                 className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"
               >
                 {creatingTuition
-                  ? 'Creating…'
+                  ? 'Please wait…'
                   : !programmeFeeReady
                     ? 'Programme fees not assigned'
                     : hasOpenTuition
@@ -974,6 +1002,81 @@ export function Invoices() {
                 className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white"
               >
                 {payingId === confirmInvoice.id ? <Spinner label="Paying…" /> : 'Approve payment'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tuitionPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-[1px]"
+          onClick={() => !creatingTuition && setTuitionPreview(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm tuition invoice"
+        >
+          <div
+            className="w-full max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-slate-100 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-sky-600">Tuition invoice</p>
+              <h2 className="text-lg font-semibold text-slate-900 mt-1">Confirm amount</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                This is what the invoice will bill. Nothing is created until you confirm.
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="text-slate-500">Installment</span>
+                  <span className="text-slate-800">
+                    {TUITION_INSTALLMENT_OPTIONS.find((option) => option.value === tuitionPreview.installment_percent)?.label
+                      ?? `${tuitionPreview.installment_percent}%`}
+                  </span>
+                </div>
+                {tuitionPreview.full_amount > 0 && (
+                  <div className="flex justify-between gap-3 mt-1.5">
+                    <span className="text-slate-500">Session school fees</span>
+                    <span className="tabular-nums text-slate-800">{formatNaira(tuitionPreview.full_amount)}</span>
+                  </div>
+                )}
+              </div>
+              {tuitionPreview.items.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Breakdown</p>
+                  <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+                    {tuitionPreview.items.map((item, index) => (
+                      <li key={index} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
+                        <span className="text-slate-700">{item.description || 'Fee line'}</span>
+                        <span className="font-medium tabular-nums shrink-0 text-slate-900">{formatNaira(item.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="flex justify-between gap-3 text-sm">
+                <span className="text-slate-500">Amount to pay</span>
+                <span className="text-base font-semibold tabular-nums text-slate-900">{formatNaira(tuitionPreview.amount)}</span>
+              </div>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-slate-100 px-4 py-4 sm:px-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <Button
+                type="button"
+                onClick={() => setTuitionPreview(null)}
+                disabled={creatingTuition}
+                className="w-full sm:w-auto bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={createTuitionInstallment}
+                disabled={creatingTuition}
+                className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white"
+              >
+                {creatingTuition ? <Spinner label="Creating…" /> : 'Create invoice'}
               </Button>
             </div>
           </div>
