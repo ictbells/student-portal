@@ -193,7 +193,7 @@ function InvoiceCard({
             <dd className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{rebate > 0 ? formatNaira(rebate) : '—'}</dd>
           </div>
           <div>
-            <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Balance</dt>
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Balance due</dt>
             <dd className={`mt-1 text-sm font-semibold tabular-nums ${Number(row.balance) > 0.009 ? 'text-amber-800' : 'text-emerald-700'}`}>
               {formatNaira(row.balance)}
             </dd>
@@ -421,7 +421,7 @@ export default function FinancialStatus() {
                 ? 'bg-emerald-400/15 text-emerald-100 ring-emerald-300/30'
                 : 'bg-amber-400/15 text-amber-100 ring-amber-300/30'
             }`}>
-              {cleared ? 'Cleared — school fees paid in full' : 'Outstanding — school fees not paid in full'}
+              {cleared ? 'Cleared — nothing outstanding' : 'Outstanding — balance still due'}
             </span>
             <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200/80">
               {cleared ? 'Balance due' : 'Amount outstanding'}
@@ -463,7 +463,7 @@ export default function FinancialStatus() {
         <Stat
           label="Outstanding"
           value={formatNaira(summary.outstanding)}
-          hint={cleared ? 'School fees paid in full' : 'Includes unpaid school fees'}
+          hint={cleared ? 'All charges paid' : 'School fees and/or other charges unpaid'}
           tone={outstanding ? 'warning' : 'success'}
         />
       </div>
@@ -471,7 +471,7 @@ export default function FinancialStatus() {
       <section className="space-y-3">
         <div>
           <h2 className="font-semibold text-slate-900">Invoices</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Charges billed to you. Paid and balance are calculated from receipts.</p>
+          <p className="text-sm text-slate-500 mt-0.5">Paid is what this invoice received. For tuition installments, Balance due is school fees still owing after earlier tuition payments.</p>
         </div>
         {invoices.length === 0 ? (
           <div className="rounded-2xl border border-slate-200/80 bg-white px-4 sm:px-6 py-10 text-center text-sm text-slate-500 shadow-sm">
