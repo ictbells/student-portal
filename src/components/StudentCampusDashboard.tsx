@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { PageHeader } from './portal';
 import { PassportPhoto } from './PassportPhoto';
 import { Card } from './ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { studentLevelLabel } from '../lib/studentLevel';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
@@ -89,15 +89,15 @@ export function StudentCampusDashboard() {
       },
       {
         label: 'Wallet balance',
-        value: wallet ? formatNaira(wallet.balance) : '—',
+        value: wallet ? formatMoney(wallet.balance, wallet.currency) : '—',
         hint: 'Campus wallet',
         tone: 'info',
       },
       {
         label: 'Outstanding fees',
         value: wallet?.outstanding != null
-          ? formatNaira(wallet.outstanding)
-          : formatNaira(unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.balance ?? invoice.amount ?? 0), 0)),
+          ? formatMoney(wallet.outstanding, wallet.currency)
+          : formatMoney(unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.balance ?? invoice.amount ?? 0), 0), wallet?.currency),
         hint: Number(wallet?.outstanding ?? 0) > 0
           ? (Number(wallet?.prior_unpaid_count ?? 0) > 0
             ? 'Pay previous session fees first'

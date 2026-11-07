@@ -6,7 +6,7 @@ import { useAuth } from '../auth';
 import { PageHeader } from '../components/portal';
 import { Alert, Spinner } from '../components/ui';
 import { useToast } from '../components/toast';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { studentLevelLabel } from '../lib/studentLevel';
 
 type InvoiceItem = {
@@ -97,7 +97,7 @@ function WalletIcon({ className = 'h-6 w-6' }: { className?: string }) {
   );
 }
 
-function ChargeList({ title, hint, rows, tone = 'default' }: { title: string; hint?: string; rows: Charge[]; tone?: 'default' | 'arrears' }) {
+function ChargeList({ title, hint, rows, tone = 'default', currency }: { title: string; hint?: string; rows: Charge[]; tone?: 'default' | 'arrears'; currency?: string }) {
   if (!rows.length) return null;
   const isArrears = tone === 'arrears';
   return (
@@ -107,7 +107,7 @@ function ChargeList({ title, hint, rows, tone = 'default' }: { title: string; hi
           <p className={`text-[11px] font-semibold uppercase tracking-wider ${isArrears ? 'text-amber-800' : 'text-slate-500'}`}>{title}</p>
           {hint ? <p className={`mt-0.5 text-xs ${isArrears ? 'text-amber-800/80' : 'text-slate-500'}`}>{hint}</p> : null}
         </div>
-        <p className={`shrink-0 text-sm font-semibold tabular-nums ${isArrears ? 'text-amber-950' : 'text-slate-900'}`}>{formatNaira(sumAmounts(rows))}</p>
+        <p className={`shrink-0 text-sm font-semibold tabular-nums ${isArrears ? 'text-amber-950' : 'text-slate-900'}`}>{formatMoney(sumAmounts(rows), currency)}</p>
       </div>
       <ul className="divide-y divide-white/80">
         {rows.map((row) => (
@@ -120,7 +120,7 @@ function ChargeList({ title, hint, rows, tone = 'default' }: { title: string; hi
                 </p>
               ) : null}
             </div>
-            <p className="shrink-0 text-sm tabular-nums text-slate-800">{formatNaira(row.amount)}</p>
+            <p className="shrink-0 text-sm tabular-nums text-slate-800">{formatMoney(row.amount, currency)}</p>
           </li>
         ))}
       </ul>
@@ -154,6 +154,7 @@ function InvoiceCard({
   const settled = Math.min(billed, paid + rebate);
   const progress = billed > 0 ? Math.min(100, Math.round((settled / billed) * 100)) : 0;
   const category = String(row.category || '').replaceAll('_', ' ');
+  const currency = row.currency;
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
@@ -182,20 +183,20 @@ function InvoiceCard({
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Billed</dt>
-            <dd className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{formatNaira(row.amount)}</dd>
+            <dd className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{formatMoney(row.amount, currency)}</dd>
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Paid</dt>
-            <dd className="mt-1 text-sm font-semibold tabular-nums text-emerald-700">{formatNaira(row.amount_paid ?? 0)}</dd>
+            <dd className="mt-1 text-sm font-semibold tabular-nums text-emerald-700">{formatMoney(row.amount_paid ?? 0, currency)}</dd>
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Rebate</dt>
-            <dd className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{rebate > 0 ? formatNaira(rebate) : '—'}</dd>
+            <dd className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{rebate > 0 ? formatMoney(rebate, currency) : '—'}</dd>
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Balance due</dt>
             <dd className={`mt-1 text-sm font-semibold tabular-nums ${Number(row.balance) > 0.009 ? 'text-amber-800' : 'text-emerald-700'}`}>
-              {formatNaira(row.balance)}
+              {formatMoney(row.balance, currency)}
             </dd>
           </div>
         </dl>
@@ -218,12 +219,13 @@ function InvoiceCard({
             </button>
             {open ? (
               <div className="space-y-2.5">
-                <ChargeList title="Current charges" rows={current} />
+                <ChargeList title="Current charges" rows={current} currency={currency} />
                 <ChargeList
                   title="Arrears"
                   hint={arrearsHint ? `${arrearsHint} · carried forward` : 'Carried forward from a previous level'}
                   rows={arrears}
                   tone="arrears"
+                  currency={currency}
                 />
               </div>
             ) : null}
@@ -399,7 +401,9 @@ export default function FinancialStatus() {
   const ledger = asRows(detail.wallet_transactions).length
     ? asRows(detail.wallet_transactions)
     : asRows(detail.wallet?.transactions);
-  const paymentTotal = payments.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+  const paymentTotal = payments
+    .filter((row: any) => (row.currency || summary.billing_currency || 'NGN') === (summary.billing_currency || 'NGN'))
+    .reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
   const cleared = summary.clearance === 'cleared';
   const outstanding = Number(summary.outstanding) > 0.009;
 
@@ -427,7 +431,7 @@ export default function FinancialStatus() {
               {cleared ? 'Balance due' : 'Amount outstanding'}
             </p>
             <p className="mt-2 text-3xl sm:text-5xl font-semibold tracking-tight tabular-nums break-words">
-              {formatNaira(summary.outstanding)}
+              {formatMoney(summary.outstanding, summary.billing_currency)}
             </p>
             <p className="mt-3 text-sm text-slate-300 max-w-xl">
               {cleared
@@ -440,9 +444,9 @@ export default function FinancialStatus() {
           </div>
         </div>
         <div className="relative mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-4 text-xs text-slate-300">
-          <span>Billed {formatNaira(summary.billed)}</span>
-          <span>Paid {formatNaira(summary.paid)}</span>
-          <span>Wallet {formatNaira(summary.wallet_balance)}</span>
+          <span>Billed {formatMoney(summary.billed, summary.billing_currency)}</span>
+          <span>Paid {formatMoney(summary.paid, summary.billing_currency)}</span>
+          <span>Wallet {formatMoney(summary.wallet_balance, summary.billing_currency)}</span>
           {outstanding ? (
             <Link to="/invoices" className="ml-auto inline-flex min-h-9 items-center rounded-lg bg-white px-3.5 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-100">
               Pay now
@@ -456,13 +460,13 @@ export default function FinancialStatus() {
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-        <Stat label="Wallet" value={formatNaira(summary.wallet_balance)} tone="info" />
-        <Stat label="Billed" value={formatNaira(summary.billed)} hint="School fees plus other invoices" />
-        <Stat label="Rebated" value={formatNaira(summary.rebate_total)} />
-        <Stat label="Paid" value={formatNaira(summary.paid)} tone="success" />
+        <Stat label="Wallet" value={formatMoney(summary.wallet_balance, summary.billing_currency)} tone="info" />
+        <Stat label="Billed" value={formatMoney(summary.billed, summary.billing_currency)} hint="School fees plus other invoices" />
+        <Stat label="Rebated" value={formatMoney(summary.rebate_total, summary.billing_currency)} />
+        <Stat label="Paid" value={formatMoney(summary.paid, summary.billing_currency)} tone="success" />
         <Stat
           label="Outstanding"
-          value={formatNaira(summary.outstanding)}
+          value={formatMoney(summary.outstanding, summary.billing_currency)}
           hint={cleared ? 'All charges paid' : 'School fees and/or other charges unpaid'}
           tone={outstanding ? 'warning' : 'success'}
         />
@@ -505,7 +509,7 @@ export default function FinancialStatus() {
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-semibold tabular-nums text-emerald-700">{formatNaira(row.amount)}</p>
+                    <p className="text-sm font-semibold tabular-nums text-emerald-700">{formatMoney(row.amount, row.currency || summary?.billing_currency)}</p>
                     {row.id || row.invoice_id ? (
                       <button
                         type="button"
@@ -524,7 +528,7 @@ export default function FinancialStatus() {
               ))}
               <li className="flex items-center justify-between gap-3 bg-slate-50 px-4 sm:px-5 py-3 text-sm font-semibold">
                 <span>Total paid</span>
-                <span className="tabular-nums">{formatNaira(paymentTotal)}</span>
+                <span className="tabular-nums">{formatMoney(paymentTotal, summary?.billing_currency)}</span>
               </li>
             </ul>
           )}
@@ -549,7 +553,7 @@ export default function FinancialStatus() {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className={`text-sm font-semibold tabular-nums ${credit ? 'text-emerald-700' : 'text-slate-800'}`}>
-                        {credit ? '+' : '−'}{formatNaira(row.amount)}
+                        {credit ? '+' : '−'}{formatMoney(row.amount, row.currency || summary?.billing_currency)}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">{formatDate(row.created_at)}</p>
                     </div>

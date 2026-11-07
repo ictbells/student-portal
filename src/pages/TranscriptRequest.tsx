@@ -4,7 +4,7 @@ import api, { networkErrorMessage } from '../api';
 import { useToast } from '../components/toast';
 import AuthLayout, { AuthLink, authPrimaryClass } from '../layout/AuthLayout';
 import { Alert, Button, Input, Label, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { startOnlineCheckout } from '../lib/onlinePayment';
 
 const CHANNELS = [
@@ -165,7 +165,7 @@ export default function TranscriptRequestPage() {
   const feeLabel = useMemo(() => {
     const fee = quote?.fee;
     if (!fee) return null;
-    return `${fee.name || selectedType?.label || 'Official transcript'} — ${formatNaira(fee.amount || 0)}`;
+    return `${fee.name || selectedType?.label || 'Official transcript'} — ${formatMoney(fee.amount || 0, fee.currency)}`;
   }, [quote, selectedType]);
 
   const resetLookupFields = () => {
@@ -373,7 +373,7 @@ export default function TranscriptRequestPage() {
                 <p className="mt-1 font-mono text-xs text-slate-600 break-all">Ref: {request.token}</p>
               )}
               {request?.amount != null && (
-                <p className="mt-2 text-slate-700">Amount: {formatNaira(request.amount)}</p>
+                <p className="mt-2 text-slate-700">Amount: {formatMoney(request.amount, request.currency || request.invoice?.currency)}</p>
               )}
               {request?.status === 'ready' && request.downloadable && (
                 <Button type="button" onClick={download} className={`${authPrimaryClass} mt-4 w-full`}>

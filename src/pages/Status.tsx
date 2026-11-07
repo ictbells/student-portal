@@ -8,7 +8,7 @@ import { PassportPhoto } from '../components/PassportPhoto';
 import { useToast } from '../components/toast';
 import { formatStage, liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
@@ -279,7 +279,7 @@ export default function Status() {
             </p>
             {app?.acceptance_fee_invoice && (
               <p className="text-sm font-medium text-emerald-900 mt-2">
-                Acceptance fee: {formatNaira(app.acceptance_fee_invoice.amount)}
+                Acceptance fee: {formatMoney(app.acceptance_fee_invoice.amount, app.acceptance_fee_invoice.currency)}
                 {' · '}
                 <span className="capitalize">{app.acceptance_fee_invoice.status}</span>
               </p>
@@ -464,7 +464,7 @@ export default function Status() {
                   <div>
                     <dt className="text-slate-500">Application fee</dt>
                     <dd className="font-medium text-slate-900 mt-0.5">
-                      {formatNaira(app.application_fee_invoice.amount)} · {app.application_fee_invoice.status}
+                      {formatMoney(app.application_fee_invoice.amount, app.application_fee_invoice.currency)} · {app.application_fee_invoice.status}
                     </dd>
                   </div>
                 )}
@@ -472,7 +472,7 @@ export default function Status() {
                   <div>
                     <dt className="text-slate-500">Acceptance fee</dt>
                     <dd className="font-medium text-slate-900 mt-0.5">
-                      {formatNaira(app.acceptance_fee_invoice.amount)} · {app.acceptance_fee_invoice.status}
+                      {formatMoney(app.acceptance_fee_invoice.amount, app.acceptance_fee_invoice.currency)} · {app.acceptance_fee_invoice.status}
                     </dd>
                   </div>
                 )}

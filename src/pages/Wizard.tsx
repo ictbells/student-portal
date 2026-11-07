@@ -396,13 +396,18 @@ export default function Wizard() {
   const steps = wizardSteps(app?.entry_mode);
 
   const ninVerified = useMemo(() => !!biodataPayload(app).nin_locked, [app]);
+  const passportIdentity = app?.entry_mode === 'pg' && app?.country === 'Non-Nigeria';
+  const identityReady = passportIdentity
+    ? !!(app?.passport_number || biodataPayload(app).passport_number)
+    : ninVerified;
 
   const load = async (id: number) => {
     const { data } = await api.get(`/api/applications/${id}`);
     setApp(data);
     const modeSteps = wizardSteps(data.entry_mode);
     const bio = biodataPayload(data);
-    const verified = !!bio.nin_locked;
+    const passportIdentity = data.entry_mode === 'pg' && data.country === 'Non-Nigeria';
+    const verified = passportIdentity ? !!(bio.passport_number || data.passport_number) : !!bio.nin_locked;
     const current = verified ? (data.current_step || 'biodata') : 'biodata';
     const found = modeSteps.findIndex((s) => s.key === current);
     const stepIndex = found >= 0 ? found : 0;
@@ -593,8 +598,10 @@ export default function Wizard() {
   };
 
   const goToStep = (stepIndex: number) => {
-    if (!ninVerified && stepIndex > 0) {
-      toast.warning('Verify your NIN before continuing to the rest of the form.');
+    if (!identityReady && stepIndex > 0) {
+      toast.warning(passportIdentity
+        ? 'Enter your passport or ID number before continuing to the rest of the form.'
+        : 'Verify your NIN before continuing to the rest of the form.');
       setIdx(0);
       return;
     }
@@ -724,7 +731,10 @@ export default function Wizard() {
       setApp(data);
       toast.success('Progress saved');
       const nextIndex = idx + 1;
-      if (nextIndex < steps.length && (ninVerified || steps[nextIndex].key === 'biodata')) {
+      const savedIdentity = data.entry_mode === 'pg' && data.country === 'Non-Nigeria'
+        ? !!(data.passport_number)
+        : !!biodataPayload(data).nin_locked;
+      if (nextIndex < steps.length && (savedIdentity || steps[nextIndex].key === 'biodata')) {
         setIdx(nextIndex);
         applyStepPayload(data, nextIndex);
       }
@@ -1124,16 +1134,18 @@ export default function Wizard() {
         <PageHeader
           eyebrow={app.application_number ? `Ref ${app.application_number}` : 'Admissions'}
           title="Application form"
-          description="Complete each section below. Your NIN identity is verified once and locked for the rest of the process. Required fields are marked with *."
+          description={passportIdentity
+            ? 'Complete each section below. Enter your passport or ID number on the first step. Required fields are marked with *.'
+            : 'Complete each section below. Your NIN identity is verified once and locked for the rest of the process. Required fields are marked with *.'}
         />
       </div>
 
       <Card className="!p-4 sm:!p-5 bg-slate-50/50">
         <StepIndicator
-          steps={steps.map((s) => ({ key: s.key, title: s.title }))}
+          steps={steps.map((s) => ({ key: s.key, title: s.key === 'biodata' && passportIdentity ? 'Passport / ID' : s.title }))}
           currentIndex={idx}
           onStepClick={goToStep}
-          isStepLocked={(index) => !ninVerified && index > 0}
+          isStepLocked={(index) => !identityReady && index > 0}
           isStepComplete={isStepComplete}
         />
       </Card>
@@ -1151,7 +1163,41 @@ export default function Wizard() {
             )}
           </Alert>
         )}
-        {step.key === 'biodata' && (
+        {step.key === 'biodata' && passportIdentity && (
+          <FormSection title="Passport or ID" description="Enter the number on your passport or national ID and the name printed on that document.">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <Label htmlFor="passport_number" required>Passport or ID number</Label>
+                <Input id="passport_number" value={payload.passport_number || ''} onChange={(e) => setField('passport_number', e.target.value.toUpperCase())} />
+              </div>
+              <div>
+                <Label htmlFor="first_name" required>First name</Label>
+                <Input id="first_name" value={payload.first_name || ''} onChange={(e) => setField('first_name', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="middle_name">Middle name</Label>
+                <Input id="middle_name" value={payload.middle_name || ''} onChange={(e) => setField('middle_name', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="last_name" required>Surname</Label>
+                <Input id="last_name" value={payload.last_name || ''} onChange={(e) => setField('last_name', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="date_of_birth" required>Date of birth</Label>
+                <Input id="date_of_birth" type="date" value={payload.date_of_birth || ''} onChange={(e) => setField('date_of_birth', e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="gender" required>Gender</Label>
+                <select id="gender" className={selectClass} value={payload.gender || ''} onChange={(e) => setField('gender', e.target.value)}>
+                  <option value="">Select</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+            </div>
+          </FormSection>
+        )}
+        {step.key === 'biodata' && !passportIdentity && (
           <>
             {!ninVerified ? (
               <FormSection title="Verify your NIN" description="Enter your 11-digit National Identification Number to retrieve your legal identity.">
@@ -1217,6 +1263,7 @@ export default function Wizard() {
                   id="country"
                   className={selectClass}
                   value={payload.country || ''}
+                  disabled={app?.entry_mode === 'pg' && !!app?.country}
                   onChange={(e) => {
                     const country = e.target.value;
                     setPayload((prev: any) => ({
@@ -2087,7 +2134,7 @@ export default function Wizard() {
           </FormSection>
         )}
 
-        {(ninVerified || step.key !== 'biodata') && (
+        {(identityReady || passportIdentity || step.key !== 'biodata') && (
           <div className="pt-4 border-t border-slate-100 space-y-4">
             {idx === steps.length - 1 && ['fee_paid', 'form_in_progress'].includes(app.stage) && (
               <div className="space-y-3">
@@ -2118,10 +2165,10 @@ export default function Wizard() {
               </div>
             )}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-              <Button onClick={save} disabled={saving || (step.key === 'biodata' && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
+              <Button onClick={save} disabled={saving || (step.key === 'biodata' && !passportIdentity && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
                 {saving ? <Spinner label="Saving…" /> : idx < steps.length - 1 ? 'Save & continue' : 'Save progress'}
               </Button>
-              {ninVerified && (
+              {identityReady && (
                 <Button
                   type="button"
                   onClick={openFormPrint}
@@ -2132,7 +2179,7 @@ export default function Wizard() {
                 </Button>
               )}
               {idx === steps.length - 1 && ['fee_paid', 'form_in_progress'].includes(app.stage) && (
-                <Button onClick={submit} disabled={saving || !ninVerified || !selectedProgrammeId || !submitAcknowledged || !windowOpen} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+                <Button onClick={submit} disabled={saving || !identityReady || !selectedProgrammeId || !submitAcknowledged || !windowOpen} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
                   {saving ? <Spinner label="Submitting…" /> : 'Submit application'}
                 </Button>
               )}

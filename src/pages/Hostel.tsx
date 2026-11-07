@@ -6,7 +6,7 @@ import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { studentLevelLabel } from '../lib/studentLevel';
 
 function formatDate(value?: string | null) {
@@ -271,8 +271,9 @@ export default function Hostel() {
   const tuitionOk = data?.tuition_ok !== false;
   const tuitionPercent = Number(data?.tuition_percent ?? 0);
   const window = data?.window;
+  const hostelCurrency = allocation?.currency || invoices[0]?.currency;
   const outstanding = invoices
-    .filter((inv: any) => ['unpaid', 'partial'].includes(String(inv.status || '')))
+    .filter((inv: any) => ['unpaid', 'partial'].includes(String(inv.status || '')) && (inv.currency || 'NGN') === (hostelCurrency || 'NGN'))
     .reduce((sum: number, inv: any) => sum + Number(inv.balance ?? inv.amount ?? 0), 0);
 
   const snapshot = [
@@ -444,8 +445,8 @@ export default function Hostel() {
             <Field label="Hostel fee" value={
               allocation?.due_required && Number(allocation.due_amount) > 0
                 ? (allocation.status === 'pending'
-                  ? `${formatNaira(allocation.due_amount)} invoiced after approval`
-                  : formatNaira(allocation.due_amount))
+                  ? `${formatMoney(allocation.due_amount, allocation.currency)} invoiced after approval`
+                  : formatMoney(allocation.due_amount, allocation.currency))
                 : 'Covered in tuition'
             } />
           </dl>
@@ -492,7 +493,7 @@ export default function Hostel() {
               <li key={inv.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 first:pt-0 last:pb-0">
                 <div>
                   <p className="font-mono text-sm font-semibold text-slate-900">{inv.number}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Balance {formatNaira(inv.balance ?? inv.amount)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Balance {formatMoney(inv.balance ?? inv.amount, inv.currency)}</p>
                 </div>
                 <StatusPill value={inv.status} />
               </li>
@@ -500,7 +501,7 @@ export default function Hostel() {
           </ul>
         )}
         {outstanding > 0 && (
-          <p className="text-sm text-amber-800">Outstanding hostel balance {formatNaira(outstanding)}. Pay from your wallet.</p>
+          <p className="text-sm text-amber-800">Outstanding hostel balance {formatMoney(outstanding, hostelCurrency)}. Pay from your wallet.</p>
         )}
       </Section>
 
@@ -524,7 +525,7 @@ export default function Hostel() {
                   For bunk rooms, pick a free Lower or Upper bunk. Staff must approve your request before the bed is allocated.
                   {selectedHostel
                     ? (selectedHostel.due_required && Number(selectedHostel.due_amount) > 0
-                      ? ` A hostel due of ${formatNaira(selectedHostel.due_amount)} will be invoiced only after staff approve.`
+                      ? ` A hostel due of ${formatMoney(selectedHostel.due_amount, selectedHostel.currency)} will be invoiced only after staff approve.`
                       : ' Hostel is covered in tuition; no separate hostel invoice will be raised.')
                     : ''}
                 </p>

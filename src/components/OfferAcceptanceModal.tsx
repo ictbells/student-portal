@@ -8,7 +8,7 @@ import {
   hasPendingAdmissionOffer,
   isOfferPromptDismissed,
 } from '../lib/offer';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 import { useToast } from './toast';
 import { Button, Spinner } from './ui';
@@ -152,7 +152,7 @@ export default function OfferAcceptanceModal() {
                   <div>
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Acceptance fee</dt>
                     <dd className="mt-0.5 font-semibold text-slate-900">
-                      {formatNaira(invoice.amount)}
+                      {formatMoney(invoice.amount, invoice.currency)}
                       <span className="ml-1.5 font-normal capitalize text-slate-500">{invoice.status}</span>
                     </dd>
                   </div>

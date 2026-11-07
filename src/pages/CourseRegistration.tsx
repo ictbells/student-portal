@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 
 function courseStatusLabel(value?: string) {
   if (value === 'elective') return 'Elective';
@@ -568,7 +568,7 @@ export default function CourseRegistration() {
                 {extension?.status === 'pending' && <Alert tone="info">Your extension request is waiting for staff review.</Alert>}
                 {extension?.status === 'approved' && (
                   <Alert tone="warning">
-                    Extension approved. Pay invoice {extension.invoice?.number || ''} ({formatNaira(extension.invoice?.amount)}) to continue registering.
+                    Extension approved. Pay invoice {extension.invoice?.number || ''} ({formatMoney(extension.invoice?.amount, extension.invoice?.currency)}) to continue registering.
                     {' '}<Link to="/invoices" className="underline">Open invoices</Link>
                   </Alert>
                 )}

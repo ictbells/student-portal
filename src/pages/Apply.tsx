@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { IdentityCard, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney, formatNaira } from '../lib/money';
 import { confirmPendingOnlinePayment, resolveApplicationFeeInvoiceId, startStudentInvoiceCheckout } from '../lib/onlinePayment';
 import { storageUrl } from '../lib/storage';
 
@@ -37,6 +37,8 @@ type OpenIntake = {
   entry_mode: string;
   opens_on?: string;
   application_fee_amount?: number | string;
+  resolved_application_fee_amount?: number | string | null;
+  resolved_application_fee_amount_usd?: number | string | null;
   term?: { session_label?: string };
 };
 
@@ -83,6 +85,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 export default function Apply() {
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
   const [jambRegistration, setJambRegistration] = useState('');
+  const [country, setCountry] = useState('Nigeria');
   const [openIntakes, setOpenIntakes] = useState<OpenIntake[]>([]);
   const [app, setApp] = useState<any>(null);
   const [starting, setStarting] = useState(false);
@@ -164,6 +167,9 @@ export default function Apply() {
       };
       if (requiresJamb) {
         payload.jamb_registration = jambRegistration.trim();
+      }
+      if (selectedIntake.entry_mode === 'pg') {
+        payload.country = country;
       }
       const { data } = await api.post('/api/applications', payload);
       setApp(data);
@@ -303,12 +309,28 @@ export default function Apply() {
                   {selectedIntake.term?.session_label && (
                     <DetailRow label="Session">{selectedIntake.term.session_label}</DetailRow>
                   )}
-                  {selectedIntake.application_fee_amount != null && (
+                  {(selectedIntake.resolved_application_fee_amount != null || selectedIntake.application_fee_amount != null) && (
                     <DetailRow label="Application fee">
-                      {formatNaira(selectedIntake.application_fee_amount)}
+                      {formatMoney(
+                        selectedIntake.entry_mode === 'pg' && country === 'Non-Nigeria'
+                          ? selectedIntake.resolved_application_fee_amount_usd
+                          : (selectedIntake.resolved_application_fee_amount ?? selectedIntake.application_fee_amount),
+                        selectedIntake.entry_mode === 'pg' && country === 'Non-Nigeria' ? 'USD' : 'NGN',
+                      )}
                     </DetailRow>
                   )}
                 </dl>
+              )}
+
+              {selectedIntake?.entry_mode === 'pg' && (
+                <div>
+                  <Label htmlFor="country" required>Country</Label>
+                  <select id="country" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={country} onChange={(e) => setCountry(e.target.value)}>
+                    <option value="Nigeria">Nigeria</option>
+                    <option value="Non-Nigeria">Non-Nigeria</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">Non-Nigeria postgraduate applicants are billed in US dollars.</p>
+                </div>
               )}
 
               {requiresJamb && (
@@ -374,7 +396,7 @@ export default function Apply() {
             {app.application_fee_invoice && (
               <DetailRow label="Amount due">
                 <span className="text-base font-semibold text-sky-700 sm:text-lg">
-                  {formatNaira(app.application_fee_invoice.amount)}
+                  {formatMoney(app.application_fee_invoice.amount, app.application_fee_invoice.currency)}
                 </span>
                 <span className="ml-2 text-xs font-normal capitalize text-slate-500">
                   · {app.application_fee_invoice.status}

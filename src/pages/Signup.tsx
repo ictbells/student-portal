@@ -91,6 +91,12 @@ export default function Signup() {
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
   const [jambRegistration, setJambRegistration] = useState('');
   const [nin, setNin] = useState('');
+  const [passportNumber, setPassportNumber] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState('');
   const [identity, setIdentity] = useState<IdentityPreview | null>(null);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -102,6 +108,7 @@ export default function Signup() {
   const [formError, setFormError] = useState<string | null>(null);
   const [existingAccount, setExistingAccount] = useState(false);
   const [intakesError, setIntakesError] = useState<string | null>(null);
+  const [country, setCountry] = useState('Nigeria');
   const { setAuth } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
@@ -126,6 +133,7 @@ export default function Signup() {
   );
   const requiresJamb = selectedIntake?.requires_jamb === true
     || ['utme', 'de'].includes(selectedIntake?.entry_mode || '');
+  const foreignPostgraduate = selectedIntake?.entry_mode === 'pg' && country === 'Non-Nigeria';
   const applicationsOpen = intakes === null ? null : intakes.length > 0;
 
   const continueFromIntake = (e: FormEvent) => {
@@ -148,8 +156,33 @@ export default function Signup() {
     setStep('nin');
   };
 
+  const continueWithPassport = (e: FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    const passport = passportNumber.trim().toUpperCase();
+    if (passport.length < 5 || !firstName.trim() || !lastName.trim() || !dateOfBirth || !gender) {
+      const message = 'Enter your passport or ID number, legal name, date of birth, and gender.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    setIdentity({
+      nin: '',
+      first_name: firstName.trim(),
+      middle_name: middleName.trim(),
+      last_name: lastName.trim(),
+      date_of_birth: dateOfBirth,
+      gender,
+    });
+    setStep('register');
+  };
+
   const verifyNin = async (e: FormEvent) => {
     e.preventDefault();
+    if (foreignPostgraduate) {
+      continueWithPassport(e);
+      return;
+    }
     if (!selectedIntake || verifying || nin.length !== 11) return;
     setVerifying(true);
     setFormError(null);
@@ -190,7 +223,9 @@ export default function Signup() {
       return;
     }
     if (!identity) {
-      const message = 'Verify your NIN before creating an account.';
+      const message = foreignPostgraduate
+        ? 'Enter your passport or ID number before creating an account.'
+        : 'Verify your NIN before creating an account.';
       setFormError(message);
       toast.warning(message);
       setStep('nin');
@@ -217,7 +252,6 @@ export default function Signup() {
     setLoading(true);
     try {
       const payload: Record<string, unknown> = {
-        nin: identity.nin,
         email,
         phone,
         alternate_phone: alternatePhone.trim(),
@@ -225,8 +259,22 @@ export default function Signup() {
         password_confirmation: confirm,
         intake_id: selectedIntake.id,
       };
+      if (foreignPostgraduate) {
+        payload.country = 'Non-Nigeria';
+        payload.passport_number = passportNumber.trim();
+        payload.first_name = identity.first_name;
+        payload.middle_name = identity.middle_name || null;
+        payload.last_name = identity.last_name;
+        payload.date_of_birth = identity.date_of_birth;
+        payload.gender = identity.gender;
+      } else {
+        payload.nin = identity.nin;
+      }
       if (requiresJamb) {
         payload.jamb_registration = jambRegistration.trim();
+      }
+      if (selectedIntake.entry_mode === 'pg' && !foreignPostgraduate) {
+        payload.country = country;
       }
       const { data } = await api.post('/api/register', payload);
       if (data.token) sessionStorage.setItem('bells_student_token', data.token);
@@ -248,14 +296,24 @@ export default function Signup() {
       title: 'Choose your session',
       subtitle: 'Pick the application session you qualify for. An open UTME window does not admit postgraduate or transfer applicants.',
     },
-    nin: {
-      title: 'Create your account',
-      subtitle: 'We verify your NIN first so your biodata is taken from a trusted source.',
-    },
-    register: {
-      title: 'Complete registration',
-      subtitle: 'Your identity is locked from NIN. Add contact details and a password.',
-    },
+    nin: foreignPostgraduate
+      ? {
+          title: 'Passport or ID',
+          subtitle: 'Enter the number on your passport or national ID, and the name printed on that document.',
+        }
+      : {
+          title: 'Create your account',
+          subtitle: 'We verify your NIN first so your biodata is taken from a trusted source.',
+        },
+    register: foreignPostgraduate
+      ? {
+          title: 'Complete registration',
+          subtitle: 'Your passport or ID is saved with this application. Add contact details and a password.',
+        }
+      : {
+          title: 'Complete registration',
+          subtitle: 'Your identity is locked from NIN. Add contact details and a password.',
+        },
   } as const;
   const heading = applicationsOpen === false ? titles.closed : titles[step];
 
@@ -347,6 +405,21 @@ export default function Signup() {
                   </p>
                 )}
               </div>
+              {selectedIntake?.entry_mode === 'pg' && (
+                <div>
+                  <Label htmlFor="country" required>Country</Label>
+                  <select
+                    id="country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full border border-[#e4ddd0] rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white"
+                  >
+                    <option value="Nigeria">Nigeria</option>
+                    <option value="Non-Nigeria">Non-Nigeria</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">Non-Nigeria postgraduate applicants are billed in US dollars.</p>
+                </div>
+              )}
               {requiresJamb && (
                 <div>
                   <Label htmlFor="jamb" required>
@@ -379,19 +452,67 @@ export default function Signup() {
                   {selectedIntake.name}
                 </Alert>
               )}
-              <div>
-                <Label htmlFor="nin" required>National Identification Number (NIN)</Label>
-                <Input
-                  id="nin"
-                  inputMode="numeric"
-                  maxLength={11}
-                  placeholder="11-digit NIN"
-                  value={nin}
-                  onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                  required
-                />
-                <p className="mt-2 text-xs text-slate-500">{nin.length}/11 digits</p>
-              </div>
+              {foreignPostgraduate ? (
+                <>
+                  <div>
+                    <Label htmlFor="passport_number" required>Passport or ID number</Label>
+                    <Input
+                      id="passport_number"
+                      value={passportNumber}
+                      onChange={(e) => setPassportNumber(e.target.value.toUpperCase())}
+                      required
+                      minLength={5}
+                      maxLength={40}
+                      placeholder="As printed on the document"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="first_name" required>First name</Label>
+                    <Input id="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="middle_name">Middle name</Label>
+                    <Input id="middle_name" value={middleName} onChange={(e) => setMiddleName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="last_name" required>Surname</Label>
+                    <Input id="last_name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="date_of_birth" required>Date of birth</Label>
+                    <Input id="date_of_birth" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="gender" required>Gender</Label>
+                    <select
+                      id="gender"
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      required
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <Label htmlFor="nin" required>National Identification Number (NIN)</Label>
+                  <Input
+                    id="nin"
+                    inputMode="numeric"
+                    maxLength={11}
+                    placeholder="11-digit NIN"
+                    value={nin}
+                    onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                    required
+                  />
+                  <p className="mt-2 text-xs text-slate-500">{nin.length}/11 digits</p>
+                </div>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   type="button"
@@ -402,10 +523,10 @@ export default function Signup() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={verifying || nin.length !== 11}
+                  disabled={verifying || (!foreignPostgraduate && nin.length !== 11)}
                   className={authPrimaryClass}
                 >
-                  {verifying ? <Spinner label="Verifying…" className="text-white" /> : <span className="text-white">Verify NIN</span>}
+                  {verifying ? <Spinner label="Verifying…" className="text-white" /> : <span className="text-white">{foreignPostgraduate ? 'Continue' : 'Verify NIN'}</span>}
                 </Button>
               </div>
             </form>
@@ -414,25 +535,37 @@ export default function Signup() {
           {step === 'register' && (
             <form onSubmit={submit} className="space-y-4">
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">Verified identity</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
+                  {foreignPostgraduate ? 'Passport or ID' : 'Verified identity'}
+                </p>
                 <p className="mt-2 font-medium text-slate-900">
                   {[identity?.first_name, identity?.middle_name, identity?.last_name].filter(Boolean).join(' ')}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
-                  NIN {identity?.nin}
+                  {foreignPostgraduate ? `ID ${passportNumber.trim().toUpperCase()}` : `NIN ${identity?.nin}`}
                   {identity?.gender ? ` · ${identity.gender}` : ''}
                   {identity?.date_of_birth ? ` · ${formatDate(identity.date_of_birth)}` : ''}
                 </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  Phone from NIN:{' '}
-                  <span className="font-medium">{phone || identity?.phone || 'Not on this NIN record'}</span>
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {(phone || identity?.phone)
-                    ? 'Locked from your NIN. Enter a different alternate number below.'
-                    : 'NIN did not return a phone. An alternate number is still required below.'}
-                </p>
+                {!foreignPostgraduate && (
+                  <>
+                    <p className="mt-2 text-sm text-slate-700">
+                      Phone from NIN:{' '}
+                      <span className="font-medium">{phone || identity?.phone || 'Not on this NIN record'}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {(phone || identity?.phone)
+                        ? 'Locked from your NIN. Enter a different alternate number below.'
+                        : 'NIN did not return a phone. An alternate number is still required below.'}
+                    </p>
+                  </>
+                )}
               </div>
+              {foreignPostgraduate && (
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+44 7700 900123" />
+                </div>
+              )}
               <div>
                 <Label htmlFor="email" required>Email</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
@@ -477,7 +610,7 @@ export default function Signup() {
                   onClick={() => setStep('nin')}
                   className="w-full rounded-xl bg-parchment text-brand sm:w-auto"
                 >
-                  Change NIN
+                  {foreignPostgraduate ? 'Change ID' : 'Change NIN'}
                 </Button>
                 <Button type="submit" disabled={loading} className={authPrimaryClass}>
                   {loading ? <Spinner label="Creating account…" className="text-white" /> : <span className="text-white">Create account</span>}

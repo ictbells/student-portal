@@ -6,7 +6,7 @@ import { DocumentPreviewThumb } from '../components/DocumentPreviewThumb';
 import { Breadcrumb, PageHeader } from '../components/portal';
 import { useToast } from '../components/toast';
 import { Alert, Button, Card, Input, Label, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney, formatNaira } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { confirmPendingOnlinePayment, startOnlineCheckout } from '../lib/onlinePayment';
 
@@ -79,6 +79,7 @@ export function WalletPage() {
       .then((r) => {
         setW(r.data);
         setMissing(false);
+        if (r.data?.currency === 'USD') setAmount('50');
       })
       .catch(() => {
         setW(null);
@@ -125,10 +126,12 @@ export function WalletPage() {
     );
   }
 
+  const walletCurrency = w?.currency === 'USD' ? 'USD' : 'NGN';
   const fund = async () => {
     const value = Number(amount);
-    if (!Number.isFinite(value) || value < 100) {
-      toast.error('Enter at least ₦100 to fund your wallet.');
+    const minimum = walletCurrency === 'USD' ? 1 : 100;
+    if (!Number.isFinite(value) || value < minimum) {
+      toast.error(walletCurrency === 'USD' ? 'Enter at least $1.00 to fund your wallet.' : 'Enter at least ₦100 to fund your wallet.');
       return;
     }
     setFunding(true);
@@ -149,14 +152,17 @@ export function WalletPage() {
   };
 
   const transactions = w.transactions || [];
-  const creditTotal = transactions
+  const purseTransactions = transactions.filter((t: any) => (t.currency || 'NGN') === walletCurrency);
+  const creditTotal = purseTransactions
     .filter((t: any) => String(t.type).toLowerCase() === 'credit')
     .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-  const debitTotal = transactions
+  const debitTotal = purseTransactions
     .filter((t: any) => String(t.type).toLowerCase() === 'debit')
     .reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
   const parsedAmount = Number(amount);
-  const canFund = Number.isFinite(parsedAmount) && parsedAmount >= 100 && !funding && !loading;
+  const fundMinimum = walletCurrency === 'USD' ? 1 : 100;
+  const canFund = Number.isFinite(parsedAmount) && parsedAmount >= fundMinimum && !funding && !loading;
+  const topupPresets = walletCurrency === 'USD' ? [50, 100, 200, 500] : WALLET_QUICK_AMOUNTS;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -176,7 +182,7 @@ export function WalletPage() {
           <div className="relative flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200/80">Available balance</p>
-              <p className="mt-3 text-3xl sm:text-5xl font-semibold tracking-tight tabular-nums break-words">{formatNaira(w.balance)}</p>
+              <p className="mt-3 text-3xl sm:text-5xl font-semibold tracking-tight tabular-nums break-words">{formatMoney(w.balance, walletCurrency)}</p>
               <p className="mt-3 text-sm text-slate-300">Use this balance to pay tuition and other school charges.</p>
             </div>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur-sm">
@@ -206,7 +212,7 @@ export function WalletPage() {
             <p className="text-sm text-slate-500 mt-0.5">Choose a preset or enter an amount.</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {WALLET_QUICK_AMOUNTS.map((preset) => {
+            {topupPresets.map((preset) => {
               const selected = Number(amount) === preset;
               return (
                 <button
@@ -220,28 +226,28 @@ export function WalletPage() {
                       : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-sky-200 hover:bg-sky-50'
                   }`}
                 >
-                  {formatNaira(preset)}
+                  {formatMoney(preset, walletCurrency)}
                 </button>
               );
             })}
           </div>
           <div>
-            <Label htmlFor="wallet-amount">Amount (NGN)</Label>
+            <Label htmlFor="wallet-amount">Amount ({walletCurrency === 'USD' ? 'USD' : 'NGN'})</Label>
             <div className="relative">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-medium text-slate-500">₦</span>
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm font-medium text-slate-500">{walletCurrency === 'USD' ? '$' : '₦'}</span>
               <Input
                 id="wallet-amount"
                 type="number"
-                min={100}
-                step="100"
-                inputMode="numeric"
+                min={fundMinimum}
+                step={walletCurrency === 'USD' ? '1' : '100'}
+                inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="pl-7 tabular-nums"
                 disabled={funding}
               />
             </div>
-            <p className="mt-1.5 text-xs text-slate-500">Minimum top-up is ₦100.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Minimum top-up is {walletCurrency === 'USD' ? '$1.00' : '₦100'}.</p>
           </div>
           <Button
             onClick={fund}
@@ -258,8 +264,8 @@ export function WalletPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {[
-          { label: 'Credits', value: formatNaira(creditTotal), hint: 'Money in', tone: 'success' },
-          { label: 'Debits', value: formatNaira(debitTotal), hint: 'Money out', tone: 'warning' },
+          { label: 'Credits', value: formatMoney(creditTotal, walletCurrency), hint: 'Money in', tone: 'success' },
+          { label: 'Debits', value: formatMoney(debitTotal, walletCurrency), hint: 'Money out', tone: 'warning' },
           { label: 'Transactions', value: String(transactions.length), hint: 'Last 25 shown', tone: 'info' },
         ].map((stat) => (
           <div
@@ -317,7 +323,7 @@ export function WalletPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className={`font-semibold tabular-nums ${isCredit ? 'text-emerald-700' : 'text-slate-900'}`}>
-                      {isCredit ? '+' : '−'}{formatNaira(t.amount)}
+                      {isCredit ? '+' : '−'}{formatMoney(t.amount, t.currency || walletCurrency)}
                     </p>
                     <span
                       className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${
@@ -350,6 +356,7 @@ export function Invoices() {
   const [installmentPercent, setInstallmentPercent] = useState(25);
   const [creatingTuition, setCreatingTuition] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [payCurrency, setPayCurrency] = useState('NGN');
   const [confirmInvoice, setConfirmInvoice] = useState<any | null>(null);
   const [tuitionPreview, setTuitionPreview] = useState<{
     installment_percent: number;
@@ -421,7 +428,10 @@ export function Invoices() {
 
   const loadWallet = () => {
     if (!auth?.is_student) return;
-    api.get('/api/wallet').then((r) => setWalletBalance(Number(r.data.balance ?? 0))).catch(() => setWalletBalance(null));
+    api.get('/api/wallet').then((r) => {
+      setWalletBalance(Number(r.data.balance ?? 0));
+      setPayCurrency(r.data.currency === 'USD' ? 'USD' : 'NGN');
+    }).catch(() => setWalletBalance(null));
   };
 
   useEffect(() => { load(); }, []);
@@ -576,7 +586,10 @@ export function Invoices() {
   const walletTopups = rows.filter((row) => row.kind === 'wallet_topup');
   const unpaid = invoiceRows.filter((i) => ['unpaid', 'partial'].includes(i.status));
   const paid = invoiceRows.filter((i) => i.status === 'paid');
-  const totalDue = unpaid.reduce((sum, i) => sum + Number(i.balance ?? i.amount ?? 0), 0);
+  const billCurrency = feeSchedule?.currency === 'USD' ? 'USD' : 'NGN';
+  const totalDue = unpaid
+    .filter((i) => (i.currency || 'NGN') === billCurrency)
+    .reduce((sum, i) => sum + Number(i.balance ?? i.amount ?? 0), 0);
   const hasOpenTuition = invoiceRows.some((i) => i.category === 'tuition' && ['unpaid', 'partial'].includes(i.status));
   const programmeFeeReady = feeSchedule?.schedule_set ?? !!auth?.programme_fee_set;
   const programmeFeeTotal = feeSchedule?.total_amount ?? auth?.programme_fee_total ?? null;
@@ -608,7 +621,7 @@ export function Invoices() {
   }, [availableInstallments, installmentPercent]);
 
   const stats = useMemo(() => ([
-    { label: 'Outstanding', value: formatNaira(totalDue), tone: totalDue > 0 ? 'warning' : 'success' },
+    { label: 'Outstanding', value: formatMoney(totalDue, billCurrency), tone: totalDue > 0 ? 'warning' : 'success' },
     { label: 'Open invoices', value: String(unpaid.length), tone: unpaid.length ? 'warning' : 'success' },
     { label: 'Completed', value: String(paid.length + walletTopups.length), tone: 'info' },
   ]), [unpaid.length, paid.length, walletTopups.length, totalDue]);
@@ -630,7 +643,7 @@ export function Invoices() {
         <Alert tone={feeSchedule?.semester_fee_error ? 'error' : 'warning'}>
           {feeSchedule?.semester_fee_error
             ? feeSchedule.semester_fee_error
-            : `Pay the semester fee (${formatNaira(feeSchedule?.semester_fee_balance ?? feeSchedule?.semester_fee_amount ?? 0)}) before other charges. Wallet top-up is still available.`}
+            : `Pay the semester fee (${formatMoney(feeSchedule?.semester_fee_balance ?? feeSchedule?.semester_fee_amount ?? 0, billCurrency)}) before other charges. Wallet top-up is still available.`}
           {feeSchedule?.semester_fee_invoice_id ? (
             <div className="mt-2">
               <Button
@@ -655,7 +668,7 @@ export function Invoices() {
 
       {auth?.is_student && hasPriorUnpaid && (
         <Alert tone="warning">
-          Pay {formatNaira(feeSchedule?.prior_unpaid_amount ?? 0)} from previous sessions and levels before current-session tuition. Open those invoices below and pay them first.
+          Pay {formatMoney(feeSchedule?.prior_unpaid_amount ?? 0, billCurrency)} from previous sessions and levels before current-session tuition. Open those invoices below and pay them first.
         </Alert>
       )}
 
@@ -687,7 +700,7 @@ export function Invoices() {
               </p>
               {programmeFeeReady && programmeFeeTotal != null && (
                 <p className="text-sm text-slate-600 mt-1">
-                  Programme schedule total: {formatNaira(programmeFeeTotal)}
+                  Programme schedule total: {formatMoney(programmeFeeTotal, billCurrency)}
                 </p>
               )}
             </div>
@@ -803,20 +816,20 @@ export function Invoices() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3.5 text-slate-800 whitespace-nowrap">
-                        {formatNaira(row.amount)}
+                        {formatMoney(row.amount, row.currency || billCurrency)}
                         {!isWalletTopup && row.full_amount != null && Number(row.full_amount) !== Number(row.amount) && (
                           <div className="text-xs text-slate-500 mt-0.5">
-                            of {formatNaira(row.full_amount)}
+                            of {formatMoney(row.full_amount, row.currency || billCurrency)}
                           </div>
                         )}
                         {!isWalletTopup && Number(row.rebate_total) > 0 && (
                           <div className="text-xs text-emerald-700 mt-0.5">
-                            Rebate {formatNaira(row.rebate_total)}
+                            Rebate {formatMoney(row.rebate_total, row.currency || billCurrency)}
                           </div>
                         )}
                         {!isPaid && row.balance != null && Number(row.balance) !== Number(row.amount) && (
                           <div className="text-xs text-amber-700 mt-0.5">
-                            Balance {formatNaira(row.balance)}
+                            Balance {formatMoney(row.balance, row.currency || billCurrency)}
                           </div>
                         )}
                       </td>
@@ -950,7 +963,7 @@ export function Invoices() {
                   {(confirmInvoice.items?.length ? confirmInvoice.items : [{ description: String(confirmInvoice.category || 'Charge').replaceAll('_', ' '), amount: confirmInvoice.balance ?? confirmInvoice.amount }]).map((item: any, index: number) => (
                     <li key={item.id || index} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
                       <span className={Number(item.amount) < 0 ? 'text-emerald-700' : 'text-slate-700'}>{item.description || 'Fee line'}</span>
-                      <span className={`font-medium tabular-nums shrink-0 ${Number(item.amount) < 0 ? 'text-emerald-700' : 'text-slate-900'}`}>{formatNaira(item.amount)}</span>
+                      <span className={`font-medium tabular-nums shrink-0 ${Number(item.amount) < 0 ? 'text-emerald-700' : 'text-slate-900'}`}>{formatMoney(item.amount, confirmInvoice.currency || payCurrency)}</span>
                     </li>
                   ))}
                 </ul>
@@ -960,27 +973,27 @@ export function Invoices() {
                   <>
                     <div className="flex justify-between gap-3">
                       <dt className="text-slate-500">Original</dt>
-                      <dd className="tabular-nums text-slate-800">{formatNaira(confirmInvoice.amount)}</dd>
+                      <dd className="tabular-nums text-slate-800">{formatMoney(confirmInvoice.amount, confirmInvoice.currency || payCurrency)}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-slate-500">Rebate</dt>
-                      <dd className="tabular-nums text-emerald-700">−{formatNaira(confirmInvoice.rebate_total)}</dd>
+                      <dd className="tabular-nums text-emerald-700">−{formatMoney(confirmInvoice.rebate_total, confirmInvoice.currency || payCurrency)}</dd>
                     </div>
                   </>
                 ) : null}
                 <div className="flex justify-between gap-3">
                   <dt className="text-slate-500">Amount due</dt>
-                  <dd className="font-semibold tabular-nums text-slate-900">{formatNaira(confirmInvoice.balance ?? confirmInvoice.amount)}</dd>
+                  <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(confirmInvoice.balance ?? confirmInvoice.amount, confirmInvoice.currency || payCurrency)}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-slate-500">Wallet balance</dt>
-                  <dd className="tabular-nums text-slate-800">{walletBalance == null ? '—' : formatNaira(walletBalance)}</dd>
+                  <dd className="tabular-nums text-slate-800">{walletBalance == null ? '—' : formatMoney(walletBalance, payCurrency)}</dd>
                 </div>
                 {walletBalance != null && (
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">Balance after payment</dt>
                     <dd className={`tabular-nums font-medium ${walletBalance - Number(confirmInvoice.balance ?? confirmInvoice.amount) < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-                      {formatNaira(walletBalance - Number(confirmInvoice.balance ?? confirmInvoice.amount))}
+                      {formatMoney(walletBalance - Number(confirmInvoice.balance ?? confirmInvoice.amount), confirmInvoice.currency || payCurrency)}
                     </dd>
                   </div>
                 )}
@@ -1045,7 +1058,7 @@ export function Invoices() {
                 {tuitionPreview.full_amount > 0 && (
                   <div className="flex justify-between gap-3 mt-1.5">
                     <span className="text-slate-500">Session school fees</span>
-                    <span className="tabular-nums text-slate-800">{formatNaira(tuitionPreview.full_amount)}</span>
+                    <span className="tabular-nums text-slate-800">{formatMoney(tuitionPreview.full_amount, tuitionPreview.currency || billCurrency)}</span>
                   </div>
                 )}
               </div>
@@ -1056,7 +1069,7 @@ export function Invoices() {
                     {tuitionPreview.items.map((item, index) => (
                       <li key={index} className="flex items-start justify-between gap-3 px-4 py-2.5 text-sm">
                         <span className="text-slate-700">{item.description || 'Fee line'}</span>
-                        <span className="font-medium tabular-nums shrink-0 text-slate-900">{formatNaira(item.amount)}</span>
+                        <span className="font-medium tabular-nums shrink-0 text-slate-900">{formatMoney(item.amount, tuitionPreview.currency || billCurrency)}</span>
                       </li>
                     ))}
                   </ul>
@@ -1065,7 +1078,7 @@ export function Invoices() {
               <dl className="space-y-1.5 text-sm">
                 <div className="flex justify-between gap-3">
                   <dt className="text-slate-500">Amount to pay</dt>
-                  <dd className="text-base font-semibold tabular-nums text-slate-900">{formatNaira(tuitionPreview.amount)}</dd>
+                  <dd className="text-base font-semibold tabular-nums text-slate-900">{formatMoney(tuitionPreview.amount, tuitionPreview.currency || billCurrency)}</dd>
                 </div>
                 {tuitionPreview.share_of_session_percent != null && (
                   <div className="flex justify-between gap-3">
@@ -1076,13 +1089,13 @@ export function Invoices() {
                 {tuitionPreview.billed_before > 0 && (
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">Already billed this session</dt>
-                    <dd className="tabular-nums text-slate-800">{formatNaira(tuitionPreview.billed_before)}</dd>
+                    <dd className="tabular-nums text-slate-800">{formatMoney(tuitionPreview.billed_before, tuitionPreview.currency || billCurrency)}</dd>
                   </div>
                 )}
                 {tuitionPreview.full_amount > 0 && (
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">Remaining after this invoice</dt>
-                    <dd className="tabular-nums text-slate-800">{formatNaira(tuitionPreview.remaining_after)}</dd>
+                    <dd className="tabular-nums text-slate-800">{formatMoney(tuitionPreview.remaining_after, tuitionPreview.currency || billCurrency)}</dd>
                   </div>
                 )}
               </dl>
@@ -1318,7 +1331,7 @@ export function Documents() {
             </p>
             {app?.acceptance_fee_invoice && (
               <p className="text-sm font-medium text-emerald-900 mt-2">
-                Acceptance fee: {formatNaira(app.acceptance_fee_invoice.amount)}
+                Acceptance fee: {formatMoney(app.acceptance_fee_invoice.amount, app.acceptance_fee_invoice.currency)}
               </p>
             )}
           </div>

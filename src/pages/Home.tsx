@@ -8,7 +8,7 @@ import { PassportPhoto } from '../components/PassportPhoto';
 import { StudentIdentityCard } from '../components/StudentIdentityCard';
 import { liveStage, studentFacingStatus, studentJourneyIndex, STUDENT_JOURNEY_STEPS } from '../constants/lifecycle';
 import { Alert, Card } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { hasPendingAdmissionOffer, openOfferPrompt } from '../lib/offer';
 import { storageUrl } from '../lib/storage';
 
@@ -158,7 +158,7 @@ export default function Home() {
         label: 'Application fee',
         value: feeStatus,
         hint: app?.application_fee_invoice
-          ? formatNaira(app.application_fee_invoice.amount)
+          ? formatMoney(app.application_fee_invoice.amount, app.application_fee_invoice.currency)
           : 'Fee appears after you create an application',
         tone: feeStatus === 'Paid' ? 'success' : feeStatus === 'Unpaid' ? 'warning' : 'default',
       },

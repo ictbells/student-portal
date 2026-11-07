@@ -4,7 +4,7 @@ import api from '../api';
 import { useAuth } from '../auth';
 import { useToast } from '../components/toast';
 import { Button, Spinner } from '../components/ui';
-import { formatNaira } from '../lib/money';
+import { formatMoney } from '../lib/money';
 import { paymentVerifyPath } from '../lib/onlinePayment';
 
 type PaymentKind = 'wallet' | 'application_fee' | 'acceptance_fee' | 'invoice';
@@ -138,6 +138,7 @@ export default function PaymentCallback() {
   }, [reference, transactionId]);
 
   const amount = payment?.amount ?? payment?.invoice?.amount;
+  const payCurrency = payment?.currency || payment?.invoice?.currency;
   const receipt = payment?.receipt_no;
   const invoiceNo = payment?.invoice?.number;
   const description = payment?.invoice?.category
@@ -195,7 +196,7 @@ export default function PaymentCallback() {
               {amount != null && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <dt className="text-slate-500">Amount</dt>
-                  <dd className="font-semibold tabular-nums text-slate-900">{formatNaira(amount)}</dd>
+                  <dd className="font-semibold tabular-nums text-slate-900">{formatMoney(amount, payCurrency)}</dd>
                 </div>
               )}
               {reference && (
