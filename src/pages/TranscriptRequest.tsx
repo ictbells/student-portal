@@ -45,7 +45,7 @@ type LookupResult = {
 };
 
 type QuoteResult = {
-  fee?: { name?: string; amount?: number };
+  fee?: { name?: string; amount?: number; currency?: string };
   transcript_type_label?: string;
 };
 
@@ -62,6 +62,8 @@ type PublicRequest = {
   delivery_mode?: string | null;
   downloadable?: boolean;
   amount?: number | null;
+  currency?: string | null;
+  invoice?: { currency?: string | null } | null;
   invoice_number?: string | null;
   invoice_status?: string | null;
   ready_at?: string | null;

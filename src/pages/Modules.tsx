@@ -360,6 +360,7 @@ export function Invoices() {
   const [confirmInvoice, setConfirmInvoice] = useState<any | null>(null);
   const [tuitionPreview, setTuitionPreview] = useState<{
     installment_percent: number;
+    currency?: string;
     amount: number;
     full_amount: number;
     billed_before: number;
@@ -369,6 +370,7 @@ export function Invoices() {
   } | null>(null);
   const [feeSchedule, setFeeSchedule] = useState<{
     schedule_set: boolean;
+    currency?: string;
     total_amount: number | null;
     tuition_percent_paid: number;
     available_installment_percents: number[];
@@ -389,6 +391,7 @@ export function Invoices() {
     api.get('/api/my-programme-fees')
       .then((r) => setFeeSchedule({
         schedule_set: !!r.data.schedule_set,
+        currency: r.data.currency === 'USD' ? 'USD' : 'NGN',
         total_amount: r.data.total_amount != null ? Number(r.data.total_amount) : null,
         tuition_percent_paid: Number(r.data.tuition_percent_paid ?? 0),
         available_installment_percents: Array.isArray(r.data.available_installment_percents)
@@ -404,6 +407,7 @@ export function Invoices() {
       }))
       .catch(() => setFeeSchedule({
         schedule_set: false,
+        currency: 'NGN',
         total_amount: null,
         tuition_percent_paid: 0,
         available_installment_percents: TUITION_INSTALLMENT_OPTIONS.map((option) => option.value),
@@ -551,6 +555,7 @@ export function Invoices() {
       });
       setTuitionPreview({
         installment_percent: Number(data.installment_percent ?? installmentPercent),
+        currency: data.currency === 'USD' ? 'USD' : 'NGN',
         amount: Number(data.amount ?? 0),
         full_amount: Number(data.full_amount ?? 0),
         billed_before: Number(data.billed_before ?? 0),
