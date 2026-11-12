@@ -651,6 +651,14 @@ export default function Wizard() {
       toast.error('Select a first-choice programme before continuing.');
       return;
     }
+    if (steps[idx].key === 'programme_selection' && app?.entry_mode === 'pg') {
+      const chosen = programs.find((p: any) => p.id === Number(payload.first_choice_program_id));
+      const activeSpecs = (chosen?.specialisations || []).filter((row: any) => row.is_active !== false);
+      if (chosen?.specialisation_required && activeSpecs.length > 0 && !Number(payload.specialisation_id)) {
+        toast.error('Select an area of specialisation for this programme.');
+        return;
+      }
+    }
     if (steps[idx].key === 'pg_research') {
       const limits = app?.pg_word_limits || {};
       const researchError = wordLimitError(
@@ -845,6 +853,11 @@ export default function Wizard() {
   const eligibility = app?.eligibility;
   const firstChoiceProgram = programs.find((p: any) => p.id === Number(payload.first_choice_program_id || app.program_id));
   const secondChoiceProgram = programs.find((p: any) => p.id === Number(payload.second_choice_program_id));
+  const specialisationOptions = (firstChoiceProgram?.specialisations || []).filter((row: any) => row.is_active !== false);
+  const specialisationMissing = app?.entry_mode === 'pg'
+    && !!firstChoiceProgram?.specialisation_required
+    && specialisationOptions.length > 0
+    && !Number(payload.specialisation_id);
   const selectedProgrammeId = Number(
     step.key === 'programme_selection'
       ? payload.first_choice_program_id
@@ -883,6 +896,7 @@ export default function Wizard() {
           first_choice_college_id: facultyIdOf(program) || '',
           first_choice_department_id: departmentIdOf(program) || '',
           program_id: program?.id || '',
+          specialisation_id: '',
         };
         if (program && Number(prev.second_choice_program_id) === Number(program.id)) {
           next.second_choice_program_id = '';
@@ -2005,6 +2019,36 @@ export default function Wizard() {
                     <p className="text-sm text-amber-700 mt-2">Select a first-choice programme. You cannot submit without one.</p>
                   )}
                 </div>
+                {app.entry_mode === 'pg' && (() => {
+                  const options = (firstChoiceProgram?.specialisations || []).filter((row: any) => row.is_active !== false);
+                  if (!firstChoiceProgram || (!options.length && !firstChoiceProgram.specialisation_required)) {
+                    return null;
+                  }
+                  return (
+                    <div>
+                      <Label htmlFor="specialisation_id" required={!!firstChoiceProgram.specialisation_required}>
+                        Area of specialisation
+                      </Label>
+                      <SearchableSelect
+                        id="specialisation_id"
+                        value={payload.specialisation_id || ''}
+                        options={options.map((row: any) => ({
+                          value: row.id,
+                          label: row.code ? `${row.name} (${row.code})` : row.name,
+                          keywords: [row.name, row.code].filter(Boolean).join(' '),
+                        }))}
+                        placeholder={options.length ? 'Search specialisation' : 'No specialisations available'}
+                        emptyText="No matching specialisation"
+                        allowClear={!firstChoiceProgram.specialisation_required}
+                        disabled={!options.length}
+                        onChange={(id) => setPayload((prev: any) => ({ ...prev, specialisation_id: id || '' }))}
+                      />
+                      {firstChoiceProgram.specialisation_required && !Number(payload.specialisation_id) && options.length > 0 && (
+                        <p className="text-sm text-amber-700 mt-2">Select an area of specialisation to continue.</p>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div>
                   <Label htmlFor="first_choice_college">College</Label>
                   <LockedProgrammeField id="first_choice_college" value={collegeNameOf(firstChoiceProgram)} />
@@ -2165,7 +2209,7 @@ export default function Wizard() {
               </div>
             )}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-              <Button onClick={save} disabled={saving || (step.key === 'biodata' && !passportIdentity && !ninVerified) || (step.key === 'programme_selection' && !selectedProgrammeId)} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
+              <Button onClick={save} disabled={saving || (step.key === 'biodata' && !passportIdentity && !ninVerified) || (step.key === 'programme_selection' && (!selectedProgrammeId || specialisationMissing))} className="w-full sm:w-auto bg-sky-600 hover:bg-sky-700 text-white shadow-sm">
                 {saving ? <Spinner label="Saving…" /> : idx < steps.length - 1 ? 'Save & continue' : 'Save progress'}
               </Button>
               {identityReady && (
